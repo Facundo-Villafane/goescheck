@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-secondary: #10b981;
+  --color-midnight: #222526;
+  --color-sand: #897E69;
+  --color-noche: #0E1B2B;
+  --color-dia: #F2F2F2; 
+}
+
+@media print {
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+    
+    body {
+      background-color: white;
+    }
+    
+    .page-break-before {
+      page-break-before: always;
+    }
+  }
