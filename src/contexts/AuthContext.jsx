@@ -35,7 +35,9 @@ export const AuthProvider = ({ children }) => {
   // Iniciar sesión con correo y contraseña
   const login = async (email, password) => {
     try {
+      console.log("Iniciando sesión con:", email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log("Sesión iniciada correctamente");
       return userCredential.user;
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
@@ -47,6 +49,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await firebaseSignOut(auth);
+      console.log("Sesión cerrada correctamente");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       throw error;
@@ -55,22 +58,56 @@ export const AuthProvider = ({ children }) => {
 
   // Registrar un nuevo usuario (solo admin puede usar esto)
   const register = async (email, password, name, role) => {
+    console.log("Iniciando registro de usuario:", email, role);
+    
     try {
+      // Verificar si el usuario actual es admin
+      if (userRole !== 'admin') {
+        console.error("Error: solo los administradores pueden registrar usuarios");
+        throw new Error('Solo los administradores pueden registrar usuarios');
+      }
+      
+      console.log("Creando usuario en Firebase Auth...");
       // Crear usuario en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      console.log("Usuario creado en Firebase Auth:", user.uid);
       
       // Crear documento de usuario en Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+      console.log("Creando documento de usuario en Firestore...");
+      const userData = {
         name,
         email,
         role,
         createdAt: new Date().toISOString()
-      });
+      };
+      
+      console.log("Datos a guardar:", userData);
+      
+      try {
+        await setDoc(doc(db, 'users', user.uid), userData);
+        console.log("Documento de usuario creado en Firestore");
+      } catch (firestoreError) {
+        console.error("Error al crear documento en Firestore:", firestoreError);
+        console.error("Código:", firestoreError.code);
+        console.error("Mensaje:", firestoreError.message);
+        
+        // Intentar eliminar el usuario de Auth ya que no pudimos crear su documento
+        try {
+          await user.delete();
+          console.log("Usuario eliminado de Auth debido a error en Firestore");
+        } catch (deleteError) {
+          console.error("Error al eliminar usuario de Auth:", deleteError);
+        }
+        
+        throw firestoreError;
+      }
       
       return user;
     } catch (error) {
       console.error("Error al registrar usuario:", error);
+      console.error("Código:", error.code);
+      console.error("Mensaje:", error.message);
       throw error;
     }
   };
@@ -88,11 +125,15 @@ export const AuthProvider = ({ children }) => {
   // Obtener todos los usuarios (solo para admin)
   const getAllUsers = async () => {
     try {
+      console.log("getAllUsers - Verificando permisos, rol actual:", userRole);
+      
       // Verificar si el usuario actual es admin
       if (userRole !== 'admin') {
+        console.error("Error: No tienes permisos para acceder a esta información");
         throw new Error('No tienes permisos para acceder a esta información');
       }
       
+      console.log("getAllUsers - Consultando colección de usuarios");
       const usersCollection = collection(db, 'users');
       const usersSnapshot = await getDocs(usersCollection);
       
@@ -101,6 +142,7 @@ export const AuthProvider = ({ children }) => {
         users.push({ id: doc.id, ...doc.data() });
       });
       
+      console.log(`getAllUsers - Se encontraron ${users.length} usuarios`);
       return users;
     } catch (error) {
       console.error("Error al obtener usuarios:", error);
@@ -124,8 +166,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Obtener información del rol de usuario desde Firestore
-  // Añade esto al método fetchUserRole en AuthContext.jsx
-const fetchUserRole = async (userId) => {
+  const fetchUserRole = async (userId) => {
     try {
       console.log('fetchUserRole - Buscando rol para userId:', userId);
       
@@ -191,29 +232,13 @@ const fetchUserRole = async (userId) => {
       case 'users':
         // Solo admin puede gestionar usuarios
         return userRole === 'admin';
+      case 'summary':
+        // Solo admin y supervisor pueden ver resúmenes
+        return ['admin', 'supervisor'].includes(userRole);
       default:
         return false;
     }
   };
-
-  // Monitorear cambios en el estado de autenticación
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
-      if (user) {
-        // Obtener rol de usuario desde Firestore
-        const role = await fetchUserRole(user.uid);
-        setUserRole(role);
-      } else {
-        setUserRole(null);
-      }
-      
-      setLoading(false);
-    });
-    
-    return () => unsubscribe();
-  }, [auth]);
 
   // Valores y funciones que expondrá el contexto
   const value = {

@@ -2,13 +2,32 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaUserPlus, FaEdit, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaSave, FaTimes, FaTrash, FaBug } from 'react-icons/fa';
+import { collection, doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+
+// Debugging component to display current auth state
+const DebugAuth = () => {
+  const { currentUser, userRole } = useAuth();
+  
+  return (
+    <div className="bg-white p-4 rounded-lg shadow mb-4 border-l-4 border-blue-500">
+      <h2 className="text-lg font-bold mb-2">Auth Debugging</h2>
+      <div className="space-y-2">
+        <p><strong>Current User:</strong> {currentUser ? currentUser.email : 'Not logged in'}</p>
+        <p><strong>User Role:</strong> {userRole || 'No role detected'}</p>
+        <p><strong>User ID:</strong> {currentUser ? currentUser.uid : 'N/A'}</p>
+      </div>
+    </div>
+  );
+};
 
 const UsersManagement = () => {
-  const { userRole, getAllUsers, register, updateUser, loading: authLoading } = useAuth();
+  const { currentUser, userRole, getAllUsers, register, updateUser, loading: authLoading } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [debugMessages, setDebugMessages] = useState([]);
   const navigate = useNavigate();
   
   // Estado para el formulario de creación/edición
@@ -21,6 +40,12 @@ const UsersManagement = () => {
   const [formEmail, setFormEmail] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState('checkin');
+  
+  // Helper function to add debug messages
+  const addDebugMessage = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugMessages(prev => [...prev, `[${timestamp}] ${message}`]);
+  };
   
   // Cargar usuarios al montar el componente
   useEffect(() => {
@@ -41,13 +66,14 @@ const UsersManagement = () => {
       setError('');
       
       try {
-        console.log('Intentando obtener usuarios con rol:', userRole);
+        addDebugMessage(`Intentando obtener usuarios con rol: ${userRole}`);
         const usersList = await getAllUsers();
         setUsers(usersList);
-        console.log('Usuarios cargados correctamente:', usersList.length);
+        addDebugMessage(`Usuarios cargados correctamente: ${usersList.length}`);
       } catch (error) {
         console.error('Error al cargar usuarios:', error);
         setError('Error al cargar usuarios: ' + error.message);
+        addDebugMessage(`Error al cargar usuarios: ${error.message}`);
         
         // Error específico para permisos
         if (error.message && error.message.includes('Missing or insufficient permissions')) {
@@ -77,10 +103,14 @@ const UsersManagement = () => {
       setLoading(true);
       setError('');
       
+      addDebugMessage(`Intentando registrar usuario: ${formEmail} con rol: ${formRole}`);
+      
       await register(formEmail, formPassword, formName, formRole);
+      addDebugMessage('Registro exitoso');
       
       // Recargar lista de usuarios
       const usersList = await getAllUsers();
+      addDebugMessage(`Lista de usuarios recargada: ${usersList.length} usuarios`);
       setUsers(usersList);
       
       // Limpiar formulario y cerrar
@@ -88,6 +118,11 @@ const UsersManagement = () => {
       setIsCreating(false);
     } catch (error) {
       console.error('Error al crear usuario:', error);
+      addDebugMessage(`Error al crear usuario: ${error.message || error}`);
+      
+      if (error.code) {
+        addDebugMessage(`Código de error: ${error.code}`);
+      }
       
       if (error.code === 'auth/email-already-in-use') {
         setError('Ya existe una cuenta con este correo electrónico');
@@ -95,8 +130,10 @@ const UsersManagement = () => {
         setError('El formato del correo electrónico no es válido');
       } else if (error.code === 'auth/weak-password') {
         setError('La contraseña debe tener al menos 6 caracteres');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setError('La creación de usuarios está deshabilitada en Firebase');
       } else {
-        setError('Error al crear usuario: ' + error.message);
+        setError('Error al crear usuario: ' + (error.message || JSON.stringify(error)));
       }
     } finally {
       setLoading(false);
@@ -115,6 +152,7 @@ const UsersManagement = () => {
     try {
       setLoading(true);
       setError('');
+      addDebugMessage(`Actualizando usuario: ${editingUserId}`);
       
       await updateUser(editingUserId, {
         name: formName,
@@ -126,6 +164,7 @@ const UsersManagement = () => {
       // Recargar lista de usuarios
       const usersList = await getAllUsers();
       setUsers(usersList);
+      addDebugMessage('Usuario actualizado correctamente');
       
       // Limpiar formulario y cerrar
       resetForm();
@@ -133,6 +172,7 @@ const UsersManagement = () => {
       setEditingUserId(null);
     } catch (error) {
       console.error('Error al actualizar usuario:', error);
+      addDebugMessage(`Error al actualizar usuario: ${error.message}`);
       setError('Error al actualizar usuario: ' + error.message);
     } finally {
       setLoading(false);
@@ -158,6 +198,36 @@ const UsersManagement = () => {
     setError('');
   };
   
+  // Función de prueba para verificar conexión a Firebase
+  const testDatabaseConnection = async () => {
+    try {
+      if (!currentUser) {
+        setError('No hay usuario autenticado');
+        addDebugMessage('Error: No hay usuario autenticado');
+        return;
+      }
+      
+      setError('');
+      addDebugMessage(`Probando conexión a la base de datos para usuario: ${currentUser.uid}`);
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        addDebugMessage(`Conexión exitosa. Role: ${userData.role}`);
+        alert(`Conexión exitosa. Tu rol: ${userData.role}`);
+      } else {
+        addDebugMessage('Documento de usuario no encontrado en la base de datos');
+        alert('Documento de usuario actual no encontrado en la base de datos');
+      }
+    } catch (error) {
+      setError(`Prueba de base de datos fallida: ${error.message}`);
+      addDebugMessage(`Error en prueba de conexión: ${error.message}`);
+      console.error('Error en prueba:', error);
+    }
+  };
+  
   // Si está cargando autenticación, mostrar indicador
   if (authLoading) {
     return (
@@ -179,21 +249,51 @@ const UsersManagement = () => {
   
   return (
     <div className="bg-white rounded-lg shadow p-6">
+      {/* Debug information */}
+      <DebugAuth />
+      
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Gestión de Usuarios</h2>
-        {!isCreating && !isEditing && (
+        <div className="flex space-x-2">
+          {!isCreating && !isEditing && (
+            <button
+              onClick={() => setIsCreating(true)}
+              className="bg-sand hover:bg-midnight text-white px-4 py-2 rounded-md flex items-center"
+            >
+              <FaUserPlus className="mr-2" /> Nuevo Usuario
+            </button>
+          )}
+          
           <button
-            onClick={() => setIsCreating(true)}
-            className="bg-sand hover:bg-midnight text-white px-4 py-2 rounded-md flex items-center"
+            onClick={testDatabaseConnection}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
           >
-            <FaUserPlus className="mr-2" /> Nuevo Usuario
+            <FaBug className="mr-2" /> Probar DB
           </button>
-        )}
+        </div>
       </div>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
+        </div>
+      )}
+      
+      {/* Debug messages */}
+      {debugMessages.length > 0 && (
+        <div className="bg-gray-100 p-3 mb-4 rounded-lg max-h-40 overflow-y-auto">
+          <h3 className="font-medium mb-2">Debug Messages:</h3>
+          <ul className="text-xs space-y-1">
+            {debugMessages.map((msg, idx) => (
+              <li key={idx} className="font-mono">{msg}</li>
+            ))}
+          </ul>
+          <button 
+            onClick={() => setDebugMessages([])}
+            className="mt-2 text-xs text-blue-600 hover:underline"
+          >
+            Clear messages
+          </button>
         </div>
       )}
       
