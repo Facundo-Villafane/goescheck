@@ -124,7 +124,7 @@ const FlightInfoTab = ({ flightDetails, setFlightDetails, onSave, onShowLogoMana
         <button
           type="button"
           onClick={onSave}
-          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium"
+          className="bg-sand hover:bg-noche text-white py-2 px-4 rounded-md font-medium"
         >
           Guardar y Continuar
         </button>

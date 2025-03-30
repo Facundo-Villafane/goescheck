@@ -177,6 +177,21 @@ const CheckInPage = () => {
     setAutoPrintBoardingPass(checked);
     localStorage.setItem('autoPrintBoardingPass', checked);
   };
+
+  // Formatear fecha
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      // Parsear la fecha correctamente
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formateando fecha:', error);
+      return dateString;
+    }
+  };
   
   // Nueva función para manejar el descheckeo de un pasajero
   const handleUncheckIn = async (passenger) => {
@@ -202,12 +217,13 @@ const CheckInPage = () => {
   return (
     <div className="max-w-6xl mx-auto p-4">
       {/* Header - Información del vuelo */}
-      <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
+      <div className="hidden bg-white rounded-lg shadow-lg p-4 mb-6">
         <div className="flex justify-between items-center">
-          <div>
+          <div className='flex flex-row items-center gap-8'>
             <h1 className="text-2xl font-bold mb-2">Check-In: {flightDetails.flightNumber}</h1>
+            
             <div className="text-gray-600">
-              {flightDetails.origin} → {flightDetails.destination} • {flightDetails.date ? new Date(flightDetails.date).toLocaleDateString() : 'Fecha no especificada'}
+            {flightDetails.origin} → {flightDetails.destination} • {formatDate(flightDetails.date)}
             </div>
           </div>
           
@@ -233,10 +249,10 @@ const CheckInPage = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Columna izquierda - Lista de pasajeros */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-4">
             <div className="bg-gray-100 px-4 py-3 border-b">
               <h2 className="font-semibold text-gray-800">Pasajeros del Vuelo</h2>
               

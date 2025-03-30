@@ -5,7 +5,7 @@ import React, { forwardRef } from 'react';
 const Logo = forwardRef(({ 
   className = "", 
   textClassName = "", 
-  size = 'lg', 
+  size = 'md', 
   withText = false,
   fillColor = "#f2f2f2",
   fixedHeight = null // Altura fija opcional

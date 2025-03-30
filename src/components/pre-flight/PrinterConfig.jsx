@@ -329,15 +329,8 @@ const PrinterConfig = ({ onSave, onClose }) => {
   return (
     <div className="bg-white rounded-lg shadow-lg p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Configuración de Impresoras</h2>
-        {onClose && (
-          <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-800"
-          >
-            <FaTimes />
-          </button>
-        )}
+        
+        
       </div>
       
       {isEditing ? (
@@ -524,7 +517,7 @@ const PrinterConfig = ({ onSave, onClose }) => {
             <button
               type="button"
               onClick={handleSavePrinter}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+              className="px-4 py-2 bg-sand hover:bg-noche text-white rounded-md"
             >
               Guardar
             </button>
@@ -538,7 +531,7 @@ const PrinterConfig = ({ onSave, onClose }) => {
               type="button"
               onClick={handleDetectPrinters}
               disabled={isLoading}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md flex items-center"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md flex items-center"
             >
               {isLoading ? (
                 <>
@@ -556,7 +549,7 @@ const PrinterConfig = ({ onSave, onClose }) => {
             <button
               type="button"
               onClick={handleAddPrinter}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center"
+              className="px-4 py-2 bg-sand hover:bg-noche text-white rounded-md flex items-center"
             >
               <FaPrint className="mr-2" />
               Añadir Impresora
@@ -576,8 +569,8 @@ const PrinterConfig = ({ onSave, onClose }) => {
                   key={printer.id}
                   className={`border rounded-lg p-4 ${
                     selectedPrinter?.id === printer.id 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-blue-300'
+                      ? 'border-sand bg-dia' 
+                      : 'border-gray-200 hover:border-sand'
                   }`}
                   onClick={() => setSelectedPrinter(printer)}
                 >
@@ -620,7 +613,7 @@ const PrinterConfig = ({ onSave, onClose }) => {
                             setDefaultPrinter(printer.id);
                           }}
                           title="Establecer como predeterminada"
-                          className="text-green-600 hover:text-green-800"
+                          className="text-emerald-600 hover:text-emerald-800"
                         >
                           <FaCheckCircle />
                         </button>

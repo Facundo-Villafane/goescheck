@@ -60,9 +60,30 @@ const LogoManager = ({ onSave, onClose }) => {
   }
   
   const handleUrlPreview = () => {
-    if (logoUrl) {
-      setLogoPreview(logoUrl);
+    if (!logoUrl) {
+      alert('Por favor ingrese una URL válida');
+      return;
     }
+    
+    // Mostrar un indicador de carga si quieres
+    setLogoPreview('loading');
+    
+    // Crear un objeto de imagen para verificar si es válida
+    const img = new Image();
+    
+    img.onload = () => {
+      // La imagen cargó correctamente
+      setLogoPreview(logoUrl);
+    };
+    
+    img.onerror = () => {
+      // Error al cargar la imagen
+      alert('No se pudo cargar la imagen. Verifique que la URL sea correcta y accesible públicamente.');
+      setLogoPreview('');
+    };
+    
+    // Intentar cargar la imagen
+    img.src = logoUrl;
   }
   
   const handleSave = () => {
@@ -90,6 +111,14 @@ const LogoManager = ({ onSave, onClose }) => {
       );
     }
     
+    if (logoPreview === 'loading') {
+      return (
+        <div className="flex items-center justify-center bg-gray-100 rounded p-4" style={{height: '100px'}}>
+          <p className="text-gray-500 text-sm">Cargando imagen...</p>
+        </div>
+      );
+    }
+    
     // Si es SVG
     if (typeof logoPreview === 'string' && 
         (logoPreview.trim().startsWith('<svg') || logoPreview.trim().startsWith('<?xml'))) {
@@ -111,7 +140,14 @@ const LogoManager = ({ onSave, onClose }) => {
           style={{maxHeight: '80px'}}
           onError={(e) => {
             console.error("Error cargando logo:", e);
-            e.target.style.display = 'none';
+            // Mostrar un mensaje de error más visible
+            const errorDiv = document.createElement('div');
+            errorDiv.textContent = "Error al cargar la imagen. Intente con otra URL o archivo.";
+            errorDiv.className = "text-red-500 text-sm";
+            
+            // Reemplazar la imagen con el mensaje de error
+            e.target.parentNode.innerHTML = '';
+            e.target.parentNode.appendChild(errorDiv);
           }}
         />
       </div>

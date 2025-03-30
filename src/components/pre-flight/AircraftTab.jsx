@@ -14,7 +14,7 @@ const AircraftTab = ({ flightDetails, onSave, onBack, onShowEditor, onSaveFlight
           <button
             type="button"
             onClick={onShowEditor}
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center"
+            className="bg-sand hover:bg-noche text-white py-2 px-4 rounded-md flex items-center"
           >
             <FaEdit className="mr-2" /> 
             Configurar Mapa de Asientos

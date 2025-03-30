@@ -49,7 +49,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           <div className="flex items-center">
             <Link 
               to="/" 
-              className="text-xl font-bold hover:text-sand transition-colors"
+              className="text-md font-bold hover:text-sand transition-colors"
             >
               <Logo/>
             </Link>

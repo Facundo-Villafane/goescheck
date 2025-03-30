@@ -20,7 +20,7 @@ const AdminLayout = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-dvh bg-gray-100">
       {/* Navbar */}
       <Navbar toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
 

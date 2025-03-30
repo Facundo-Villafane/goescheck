@@ -25,7 +25,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
     <div className={`${collapsed ? 'w-16' : 'w-64'} bg-midnight text-white transition-all duration-300 ease-in-out flex flex-col`}>
       {/* Cabecera del sidebar */}
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-        {!collapsed && <h2 className="text-xl font-bold">Panel Admin</h2>}
+        {!collapsed && <h2 className="text-xl font-bold">SETTINGS</h2>}
         <button 
           className="p-1 rounded-full hover:bg-gray-700"
           onClick={() => setCollapsed(!collapsed)}
@@ -67,16 +67,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
         </nav>
       </div>
       
-      {/* Botón de cerrar sesión en la parte inferior */}
-      <div className="p-4 border-t border-gray-800">
-        <button
-          className={`flex items-center w-full p-3 text-red-300 hover:text-white hover:bg-red-700 transition-colors duration-200 rounded ${collapsed ? 'justify-center' : ''}`}
-          onClick={handleLogout}
-        >
-          <span className="text-lg"><FaSignOutAlt /></span>
-          {!collapsed && <span className="ml-3">Cerrar Sesión</span>}
-        </button>
-      </div>
+      
     </div>
   );
 };

@@ -39,8 +39,8 @@ const TabButton = ({ active, onClick, icon, label, completed, disabled }) => {
     <button
       className={`py-2 px-4 ${
         active 
-          ? 'border-b-2 border-blue-600 text-blue-600' 
-          : 'text-gray-500 hover:text-blue-600'
+          ? 'border-b-2 border-noche text-noche' 
+          : 'text-gray-500 hover:text-sand'
       }`}
       onClick={onClick}
       disabled={disabled}
