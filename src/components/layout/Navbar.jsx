@@ -6,7 +6,7 @@ import { FaBars, FaUser, FaSignOutAlt, FaCog } from 'react-icons/fa';
 import Logo from '../common/Logo';
 
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
-  const { currentUser, userRole, logout } = useAuth();
+  const { currentUser, userRole, logout, userName } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,7 +81,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
               <div className="w-8 h-8 bg-sand rounded-full flex items-center justify-center text-midnight">
                 <FaUser />
               </div>
-              <span className="ml-2 hidden sm:inline-block">{currentUser?.email?.split('@')[0]}</span>
+              <span className="ml-2 hidden sm:inline-block">{userName || currentUser?.email?.split('@')[0]}</span>
               <div className="ml-2 text-xs px-2 py-1 rounded-full bg-gray-700 hidden sm:block">
                 {getRoleName(userRole)}
               </div>

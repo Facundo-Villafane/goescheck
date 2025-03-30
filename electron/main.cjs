@@ -40,6 +40,36 @@ function createWindow() {
   });
 }
 
+// Cargar variables de entorno para el proceso principal
+function loadEnv() {
+  const NODE_ENV = process.env.NODE_ENV || 'development';
+  const envFile = path.join(__dirname, '..', `.env.${NODE_ENV}`);
+  
+  if (fs.existsSync(envFile)) {
+    const envConfig = require('dotenv').parse(fs.readFileSync(envFile));
+    Object.keys(envConfig).forEach((key) => {
+      process.env[key] = envConfig[key];
+    });
+  }
+}
+
+// Cargar variables antes de hacer cualquier otra cosa
+loadEnv();
+
+function checkRequiredEnv() {
+  const required = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN'];
+  const missing = required.filter(key => !process.env[`${key}`]);
+  
+  if (missing.length > 0) {
+    console.error(`Error: Missing required environment variables: ${missing.join(', ')}`);
+    app.exit(1);
+  }
+}
+
+app.whenReady().then(() => {
+  checkRequiredEnv();
+  createWindow();
+});
 
 // Inicializar la aplicación y configurar los manejadores de impresión
 app.whenReady().then(() => {

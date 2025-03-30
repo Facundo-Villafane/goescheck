@@ -11,6 +11,7 @@ import OperationsPage from './pages/OperationsPage';
 import LoginPage from './pages/LoginPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import BoardingPage from './pages/BoardingPage';
 import { FlightProvider } from './contexts/FlightContext';
 import { PassengersProvider, usePassengersContext } from './contexts/PassengersContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -47,6 +48,10 @@ const AppContent = () => {
             {
               path: 'checkin',
               element: <CheckInPage />,
+            },
+            {
+              path: 'boarding',
+              element: <BoardingPage />,
             },
             {
               // Resumen solo para admin y supervisor

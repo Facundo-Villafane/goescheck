@@ -29,7 +29,10 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [userName, setUserName] = useState(null); // Estado para el nombre del usuario actual
+  const [userDetails, setUserDetails] = useState(null); // Estado para los detalles completos del usuario
   const [loading, setLoading] = useState(true);
+  const [usersMap, setUsersMap] = useState({}); // Mapa de IDs de usuario a detalles de usuario
   const auth = getAuth();
 
   // Iniciar sesión con correo y contraseña
@@ -38,6 +41,15 @@ export const AuthProvider = ({ children }) => {
       console.log("Iniciando sesión con:", email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log("Sesión iniciada correctamente");
+      
+      // Obtener datos del usuario inmediatamente
+      const userData = await fetchUserData(userCredential.user.uid);
+      if (userData) {
+        setUserDetails(userData);
+        setUserName(userData.name);
+        setUserRole(userData.role);
+      }
+      
       return userCredential.user;
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
@@ -49,10 +61,26 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await firebaseSignOut(auth);
+      setUserName(null);
+      setUserDetails(null);
       console.log("Sesión cerrada correctamente");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       throw error;
+    }
+  };
+
+  // Obtener datos completos de un usuario
+  const fetchUserData = async (userId) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        return { id: userId, ...userDoc.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error al obtener datos de usuario:", error);
+      return null;
     }
   };
 
@@ -87,6 +115,13 @@ export const AuthProvider = ({ children }) => {
       try {
         await setDoc(doc(db, 'users', user.uid), userData);
         console.log("Documento de usuario creado en Firestore");
+        
+        // Actualizar el mapa de usuarios en memoria
+        setUsersMap(prev => ({
+          ...prev,
+          [user.uid]: { id: user.uid, ...userData }
+        }));
+        
       } catch (firestoreError) {
         console.error("Error al crear documento en Firestore:", firestoreError);
         console.error("Código:", firestoreError.code);
@@ -138,9 +173,16 @@ export const AuthProvider = ({ children }) => {
       const usersSnapshot = await getDocs(usersCollection);
       
       const users = [];
+      const usersMapUpdate = {};
+      
       usersSnapshot.forEach(doc => {
-        users.push({ id: doc.id, ...doc.data() });
+        const userData = { id: doc.id, ...doc.data() };
+        users.push(userData);
+        usersMapUpdate[doc.id] = userData;
       });
+      
+      // Actualizar el mapa de usuarios
+      setUsersMap(usersMapUpdate);
       
       console.log(`getAllUsers - Se encontraron ${users.length} usuarios`);
       return users;
@@ -148,6 +190,11 @@ export const AuthProvider = ({ children }) => {
       console.error("Error al obtener usuarios:", error);
       throw error;
     }
+  };
+
+  // Obtener nombre de usuario por ID
+  const getUserNameById = (userId) => {
+    return usersMap[userId]?.name || "Usuario desconocido";
   };
 
   // Actualizar datos de un usuario
@@ -159,6 +206,20 @@ export const AuthProvider = ({ children }) => {
       }
       
       await setDoc(doc(db, 'users', userId), userData, { merge: true });
+      
+      // Actualizar el mapa de usuarios en memoria
+      setUsersMap(prev => ({
+        ...prev,
+        [userId]: { ...prev[userId], ...userData }
+      }));
+      
+      // Si es el usuario actual, actualizar la información en el contexto
+      if (currentUser && userId === currentUser.uid) {
+        setUserDetails(prev => ({ ...prev, ...userData }));
+        if (userData.name) setUserName(userData.name);
+        if (userData.role) setUserRole(userData.role);
+      }
+      
     } catch (error) {
       console.error("Error al actualizar usuario:", error);
       throw error;
@@ -177,6 +238,17 @@ export const AuthProvider = ({ children }) => {
         const userData = userDoc.data();
         console.log('fetchUserRole - Datos obtenidos:', userData);
         console.log('fetchUserRole - Rol encontrado:', userData.role);
+        
+        // Mientras estamos aquí, actualizar el nombre y los detalles del usuario
+        setUserName(userData.name);
+        setUserDetails({ id: userId, ...userData });
+        
+        // También actualizar el mapa de usuarios
+        setUsersMap(prev => ({
+          ...prev,
+          [userId]: { id: userId, ...userData }
+        }));
+        
         return userData.role;
       }
       
@@ -202,8 +274,19 @@ export const AuthProvider = ({ children }) => {
         const role = await fetchUserRole(user.uid);
         console.log('onAuthStateChanged - Rol obtenido:', role);
         setUserRole(role);
+        
+        // Precargar lista de usuarios si es admin
+        if (role === 'admin') {
+          try {
+            await getAllUsers();
+          } catch (error) {
+            console.error("Error precargando usuarios:", error);
+          }
+        }
       } else {
         setUserRole(null);
+        setUserName(null);
+        setUserDetails(null);
       }
       
       setLoading(false);
@@ -244,6 +327,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userRole,
+    userName,
+    userDetails,
     login,
     logout,
     register,
@@ -251,7 +336,9 @@ export const AuthProvider = ({ children }) => {
     getAllUsers,
     updateUser,
     canAccessSection,
-    loading
+    getUserNameById,
+    loading,
+    usersMap
   };
 
   return (

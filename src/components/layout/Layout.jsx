@@ -4,7 +4,7 @@ import { Outlet, useLocation, Link, useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFlightContext } from '../../contexts/FlightContext';
 import Navbar from './Navbar';
-import { FaPlane, FaRegCheckCircle, FaChartBar, FaTools, FaCog, FaClock } from 'react-icons/fa';
+import { FaPlane, FaRegCheckCircle, FaChartBar, FaTools, FaCog, FaClock, FaTicketAlt } from 'react-icons/fa';
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -160,6 +160,13 @@ useEffect(() => {
       icon: <FaRegCheckCircle />,
       disabled: !activeFlightId,
       access: true // Todos pueden hacer check-in
+    },
+    {
+      to: '/boarding',
+      text: 'Embarque',
+      icon: <FaTicketAlt />, // Or another appropriate icon from react-icons
+      disabled: !activeFlightId,
+      access: true // Adjust access as needed
     },
     {
       to: '/summary',

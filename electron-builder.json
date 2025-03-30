@@ -8,7 +8,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      ".env.production"
     ],
     "mac": {
     "icon": "build/icons/icon.icns",

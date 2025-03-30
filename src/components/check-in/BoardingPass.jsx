@@ -64,9 +64,10 @@ const generatePDF417 = () => {
       const origin = flightDetails?.origin || 'XXX';
       const destination = flightDetails?.destination || 'XXX';
       const seat = passenger?.seat || 'XX'; // Obtener el asiento
+      const seq = passenger?.ticket || 'XXX'; // Obtener el número de ticket
       
       // Formato básico para boarding pass con asiento incluido
-      const boardingPassData = `M1${lastName}/${firstName} ${flightNum} ${origin}${destination} ${seat}`;
+      const boardingPassData = `${seq}/${lastName}/${firstName} ${flightNum} ${origin}${destination} ${seat}`;
       
       // Generar el código con bwip-js
       let canvas = document.createElement('canvas');
@@ -213,9 +214,9 @@ const renderLogo = () => {
 
   return (
     <div className="space-y-4">
-      {/* Información de la impresora y botones de acción */}
+       {/*Información de la impresora y botones de acción*/} 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        <div className="w-full md:w-auto">
+        {/*<div className="w-full md:w-auto">
           {showPrinterSelector ? (
             <PrinterSelector 
               onPrinterChange={handlePrinterChange}
@@ -241,10 +242,10 @@ const renderLogo = () => {
               </button>
             </div>
           )}
-        </div>
+        </div>*/}
         
         <div className="flex space-x-2 w-full md:w-auto justify-end">
-          {showPrintButton && (
+          {/*{showPrintButton && (
             <button
               onClick={handlePrint}
               className="bg-sand hover:bg-noche text-white font-bold py-2 px-4 rounded flex items-center"
@@ -253,7 +254,7 @@ const renderLogo = () => {
               <FaPrint className="mr-2" /> 
               {printerConfig?.id === 'pdf-preview' ? 'Vista Previa' : 'Imprimir'}
             </button>
-          )}
+          )}*/}
           
           {onClose && (
             <button
