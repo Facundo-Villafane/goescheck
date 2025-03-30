@@ -2,9 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- Favicon para modo claro (oscuro por defecto) -->
+    <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
+    
+    <!-- Favicon para modo oscuro -->
+    <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
+    
+    <!-- Favicon de respaldo (por si acaso) -->
+    <link rel="icon" type="image/png" href="/favicon-light.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>GOES Check-in System v0.1.0</title>
   </head>
   <body>
     <div id="root"></div>

@@ -17,6 +17,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, '../build/icons/icon.png'), // Añade un ícono
+    title: "GOES Check-in System v0.1.0", // Título de la ventana
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

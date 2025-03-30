@@ -1,0 +1,26 @@
+{
+    "appId": "com.goes.checkin",
+    "productName": "GOES Check-in System",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "output": "dist_electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "mac": {
+    "icon": "build/icons/icon.icns",
+    "category": "public.app-category.business"
+  },
+  "win": {
+    "icon": "build/icons/icon.ico",
+    "target": "nsis"
+  },
+  "linux": {
+    "icon": "build/icons/icon.png",
+    "target": ["AppImage", "deb"],
+    "category": "Office"
+  }
+  }
