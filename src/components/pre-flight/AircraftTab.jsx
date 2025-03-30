@@ -2,7 +2,7 @@
 import React from 'react';
 import { FaEdit } from 'react-icons/fa';
 
-const AircraftTab = ({ flightDetails, onSave, onBack, onShowEditor }) => {
+const AircraftTab = ({ flightDetails, onSave, onBack, onShowEditor, onSaveFlight }) => {
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
       <h2 className="text-xl font-semibold mb-4">Configuración de Aeronave</h2>
@@ -57,6 +57,16 @@ const AircraftTab = ({ flightDetails, onSave, onBack, onShowEditor }) => {
         >
           Continuar
         </button>
+        <button
+            type="button"
+            onClick={async () => {
+                await onSaveFlight(); // Asegúrate de que esta función es accesible
+                alert('Configuración guardada correctamente en la base de datos');
+            }}
+            className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium"
+            >
+            Guardar en Base de Datos
+            </button>
       </div>
     </div>
   );

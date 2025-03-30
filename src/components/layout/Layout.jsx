@@ -4,10 +4,11 @@ import { Outlet, useLocation, Link, useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFlightContext } from '../../contexts/FlightContext';
 import Navbar from './Navbar';
-import { FaPlane, FaRegCheckCircle, FaChartBar, FaTools, FaCog } from 'react-icons/fa';
+import { FaPlane, FaRegCheckCircle, FaChartBar, FaTools, FaCog, FaClock } from 'react-icons/fa';
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(null);
   const location = useLocation();
   const { activeFlightId, flightDetails } = useFlightContext();
   const { userRole, canAccessSection } = useAuth();
@@ -18,6 +19,109 @@ const Layout = () => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  // Calcular y actualizar el tiempo restante
+// Calcular y actualizar el tiempo restante
+useEffect(() => {
+  if (activeFlightId && flightDetails && flightDetails.std && flightDetails.date) {
+    const updateTimeRemaining = () => {
+      try {
+        console.log('Calculando tiempo para vuelo:', flightDetails.flightNumber);
+        
+        // Parsear la fecha correctamente (asegurándonos de que sea la fecha local)
+        const [year, month, day] = flightDetails.date.split('-').map(Number);
+        
+        // Mes en JavaScript comienza en 0, por lo que restamos 1
+        const departureDate = new Date(year, month - 1, day);
+        
+        // Extraer horas y minutos de STD (formato HH:MM)
+        const stdParts = flightDetails.std.split(':');
+        const hours = parseInt(stdParts[0], 10);
+        const minutes = parseInt(stdParts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          console.warn('Formato de hora STD inválido:', flightDetails.std);
+          setTimeRemaining(null);
+          return;
+        }
+        
+        // Configurar la hora en la fecha de salida
+        departureDate.setHours(hours, minutes, 0, 0);
+        
+        // Crear fecha para el cierre de check-in (45 minutos antes del STD)
+        const checkInCloseDate = new Date(departureDate);
+        checkInCloseDate.setMinutes(checkInCloseDate.getMinutes() - 45);
+        
+        console.log('Fecha y hora de salida:', departureDate.toLocaleString());
+        console.log('Fecha y hora de cierre de check-in:', checkInCloseDate.toLocaleString());
+        
+        // Obtener fecha y hora actuales
+        const now = new Date();
+        
+        // Calcular diferencia de tiempo para STD
+        const diffToSTD = departureDate - now;
+        const diffToClose = checkInCloseDate - now;
+        
+        // Calcular horas y minutos restantes para STD
+        const stdMinutesRemaining = Math.floor(diffToSTD / (1000 * 60));
+        const stdHoursRemaining = Math.floor(stdMinutesRemaining / 60);
+        const stdRemainingMinutes = stdMinutesRemaining % 60;
+        
+        // Calcular horas y minutos restantes para cierre de check-in
+        const closeMinutesRemaining = Math.floor(diffToClose / (1000 * 60));
+        const closeHoursRemaining = Math.floor(closeMinutesRemaining / 60);
+        const closeRemainingMinutes = closeMinutesRemaining % 60;
+        
+        // Determinar estado para hora de salida
+        let stdStatusClass = 'text-green-300';
+        if (stdMinutesRemaining < 30) {
+          stdStatusClass = 'text-red-400 font-bold';
+        } else if (stdMinutesRemaining < 60) {
+          stdStatusClass = 'text-yellow-300';
+        }
+        
+        // Determinar estado para cierre de check-in
+        let closeStatusClass = 'text-green-300';
+        if (closeMinutesRemaining < 15) {
+          closeStatusClass = 'text-red-400 font-bold';
+        } else if (closeMinutesRemaining < 30) {
+          closeStatusClass = 'text-yellow-300';
+        }
+        
+        setTimeRemaining({
+          std: {
+            expired: diffToSTD < 0,
+            hours: stdHoursRemaining,
+            minutes: stdRemainingMinutes,
+            text: diffToSTD < 0 ? 'Salida pasada' : `${stdHoursRemaining}h ${stdRemainingMinutes}m`,
+            statusClass: diffToSTD < 0 ? 'text-red-500' : stdStatusClass
+          },
+          checkInClose: {
+            expired: diffToClose < 0,
+            hours: closeHoursRemaining,
+            minutes: closeRemainingMinutes,
+            text: diffToClose < 0 ? 'Check-in cerrado' : `${closeHoursRemaining}h ${closeRemainingMinutes}m`,
+            statusClass: diffToClose < 0 ? 'text-red-500' : closeStatusClass
+          }
+        });
+      } catch (error) {
+        console.error('Error calculando tiempo restante:', error);
+        setTimeRemaining(null);
+      }
+    };
+    
+    // Actualizar inmediatamente
+    updateTimeRemaining();
+    
+    // Configurar intervalo para actualizar cada minuto
+    const interval = setInterval(updateTimeRemaining, 60000);
+    
+    // Limpiar intervalo cuando cambie el componente o el vuelo
+    return () => clearInterval(interval);
+  } else {
+    setTimeRemaining(null);
+  }
+}, [activeFlightId, flightDetails]);
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -25,6 +129,21 @@ const Layout = () => {
   // Verificar si la ruta actual está activa
   const isActive = (path) => {
     return location.pathname === path;
+  };
+
+  // Formatear fecha
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      // Parsear la fecha correctamente
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formateando fecha:', error);
+      return dateString;
+    }
   };
 
   // Lista de enlaces de navegación
@@ -79,8 +198,44 @@ const Layout = () => {
                 <div className="text-sm">
                   {flightDetails.origin} → {flightDetails.destination}
                 </div>
-                <div className="text-xs text-blue-300 mt-1">
-                  {flightDetails.date && new Date(flightDetails.date).toLocaleDateString()}
+                
+                {/* Detalles de fecha y hora */}
+                <div className="mt-2">
+                  <div className="text-xs text-blue-300">
+                    {formatDate(flightDetails.date)}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-sm">
+                      STD: {flightDetails.std || '--:--'}
+                    </div>
+                    
+                    {/* Tiempo restante */}
+                    {timeRemaining && (
+                      <div className="mt-2 text-xs space-y-1">
+                        {/* Tiempo para cierre de check-in */}
+                        {timeRemaining.checkInClose && (
+                          <div className={`flex items-center justify-between ${timeRemaining.checkInClose.statusClass}`}>
+                            <span className='mr-1'>Cierre CHK:</span>
+                            <span className="flex items-center">
+                              <FaClock className="mr-1" size={10} />
+                              {timeRemaining.checkInClose.text}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Tiempo para salida */}
+                        {timeRemaining.std && (
+                          <div className={`flex items-center justify-between ${timeRemaining.std.statusClass}`}>
+                            <span>Departure:</span>
+                            <span className="flex items-center">
+                              <FaPlane className="mr-1" size={10} />
+                              {timeRemaining.std.text}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

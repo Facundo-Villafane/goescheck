@@ -14,6 +14,8 @@ const SeatMap = ({ onSeatSelect }) => {
 
   // Configuración de asientos según el tipo de aeronave
   useEffect(() => {
+    console.log("flightDetails.seatConfig:", flightDetails.seatConfig);
+console.log("flightDetails.aircraft:", flightDetails.aircraft);
     if (flightDetails.aircraft || flightDetails.seatConfig) {
       // Aquí configuramos el mapa de asientos según el tipo de aeronave o configuración personalizada
       generateSeatMap();

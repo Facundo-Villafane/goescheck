@@ -234,7 +234,7 @@ export const AuthProvider = ({ children }) => {
         return userRole === 'admin';
       case 'summary':
         // Solo admin y supervisor pueden ver resúmenes
-        return ['admin', 'supervisor'].includes(userRole);
+        return ['admin', 'supervisor', 'checkin'].includes(userRole);
       default:
         return false;
     }

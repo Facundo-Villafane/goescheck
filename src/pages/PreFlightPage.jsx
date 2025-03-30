@@ -98,7 +98,7 @@ const PreFlightPage = () => {
   }, [activeFlightId, flightDetails, setFlightDetails]);
 
   // Funciones de manejo de eventos
-  const handleSeatConfigSave = (config) => {
+  const handleSeatConfigSave = async (config) => {
     const newFlightDetails = {
       ...flightDetails,
       seatConfig: config,
@@ -107,6 +107,19 @@ const PreFlightPage = () => {
     
     setFlightDetails(newFlightDetails);
     localStorage.setItem('flightDetails', JSON.stringify(newFlightDetails));
+    
+    // Guardar explícitamente en Firebase si hay un ID activo
+    if (activeFlightId) {
+      try {
+        console.log("Guardando configuración en Firebase...");
+        // Llamar a saveFlight para sincronizar con Firebase
+        await saveFlight();
+        console.log("Configuración guardada en Firebase exitosamente");
+      } catch (error) {
+        console.error("Error al guardar configuración en Firebase:", error);
+      }
+    }
+    
     setCompletedSteps(prev => ({ ...prev, aircraft: true }));
   };
 
@@ -208,6 +221,7 @@ const PreFlightPage = () => {
               }}
               onBack={() => setActiveTab('info')}
               onShowEditor={() => setShowSeatMapEditor(true)}
+              onSaveFlight={saveFlight}
             />
           }
           
