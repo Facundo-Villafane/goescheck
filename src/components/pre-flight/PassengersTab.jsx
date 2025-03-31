@@ -107,7 +107,7 @@ const PassengersTab = ({ flightDetails, onBack, onFinish, onComplete }) => {
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1">
           <label className="block w-full">
-          // src/components/pre-flight/PassengersTab.jsx (continuación)
+          
             <span className={`w-full px-4 py-2 ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md cursor-pointer inline-block text-center`}>
               {isLoading ? 'Cargando...' : 'Cargar Excel'}
             </span>

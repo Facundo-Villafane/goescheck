@@ -1,0 +1,8 @@
+version: 0.1.0
+files:
+  - url: GOES-Check-in-System-Setup-0.1.0.exe
+    sha512: j8ZLopuu7M0rD+9S1gtHje8CHSZsG5w9cNCTGSG1fMgbmZZ4GC3SwT8CLlmQx0GLmayQtGIkAbra+7D2vx6hvA==
+    size: 128508247
+path: GOES-Check-in-System-Setup-0.1.0.exe
+sha512: j8ZLopuu7M0rD+9S1gtHje8CHSZsG5w9cNCTGSG1fMgbmZZ4GC3SwT8CLlmQx0GLmayQtGIkAbra+7D2vx6hvA==
+releaseDate: '2025-03-31T05:36:55.301Z'

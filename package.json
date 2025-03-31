@@ -3,6 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+
+  "author": {
+  "name": "Facundo Villafañe",
+  "email": "favillafane@aeroboost.com.ar"
+},
+
+"description": "Sistema de check-in y embarque para aerolíneas",
+
   "scripts": {
     "dev": "vite",
     "build": "vite build",

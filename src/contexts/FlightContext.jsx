@@ -189,11 +189,39 @@ const loadFlightDetails = async (flightId) => {
     console.log("Actualizando vuelo existente:", flightId);
   }
     
-    const flightData = {
-      ...flightDetails,
-      id: flightId,
-      updatedAt: new Date().toISOString()
-    };
+  const flightData = {
+    ...flightDetails,
+    id: flightId,
+    updatedAt: new Date().toISOString(),
+    // Nuevos campos para embarque
+    boardedPassengers: [], // Array de IDs de pasajeros embarcados
+    lastBoardingUpdate: null, // Timestamp de la última actualización de embarque
+    boardingStatus: {
+      totalCheckedIn: 0,
+      totalBoarded: 0,
+      completionPercentage: 0
+    }
+  };
+
+  const updateBoardingStats = async (flightId, checkedInCount, boardedCount) => {
+    if (!flightId || !isOnline) return;
+    
+    try {
+      const flightRef = doc(db, 'flights', flightId);
+      
+      await updateDoc(flightRef, {
+        'boardingStatus.totalCheckedIn': checkedInCount,
+        'boardingStatus.totalBoarded': boardedCount,
+        'boardingStatus.completionPercentage': checkedInCount > 0 ? 
+          Math.round((boardedCount / checkedInCount) * 100) : 0,
+        lastBoardingUpdate: new Date().toISOString()
+      });
+      
+      console.log('Estadísticas de embarque actualizadas en Firebase');
+    } catch (error) {
+      console.error('Error actualizando estadísticas de embarque:', error);
+    }
+  };
 
     // Asegurarnos de que seatConfig esté presente
   if (!flightData.seatConfig) {
@@ -364,6 +392,7 @@ const loadFlightDetails = async (flightId) => {
       saveFlight,
       loadFlight,
       deleteFlight,
+      
       isOnline,
       loading
     }}>

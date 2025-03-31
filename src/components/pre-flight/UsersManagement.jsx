@@ -1,8 +1,8 @@
 // src/components/pre-flight/UsersManagement.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaUserPlus, FaEdit, FaSave, FaTimes, FaTrash, FaBug } from 'react-icons/fa';
+import { FaUserPlus, FaEdit, FaSave, FaTimes, FaBug } from 'react-icons/fa';
 import { collection, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
@@ -41,54 +41,55 @@ const UsersManagement = () => {
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState('checkin');
   
-  // Helper function to add debug messages
-  const addDebugMessage = (message) => {
+  // Helper function to add debug messages - memoized to prevent re-renders
+  const addDebugMessage = useCallback((message) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugMessages(prev => [...prev, `[${timestamp}] ${message}`]);
-  };
+  }, []);
   
-  // Cargar usuarios al montar el componente
+  // Fetch users only once when component mounts
+  const fetchUsers = useCallback(async () => {
+    // Verificar permisos explícitamente
+    if (userRole !== 'admin') {
+      console.log('No tienes permisos de administrador para ver usuarios');
+      navigate('/unauthorized');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      addDebugMessage(`Intentando obtener usuarios con rol: ${userRole}`);
+      const usersList = await getAllUsers();
+      setUsers(usersList);
+      addDebugMessage(`Usuarios cargados correctamente: ${usersList.length}`);
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+      setError('Error al cargar usuarios: ' + error.message);
+      addDebugMessage(`Error al cargar usuarios: ${error.message}`);
+      
+      // Error específico para permisos
+      if (error.message && error.message.includes('Missing or insufficient permissions')) {
+        setError('Error de permisos: No tienes autorización para ver esta información. Por favor, contacta al administrador del sistema.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [userRole, getAllUsers, navigate, addDebugMessage]);
+  
+  // Cargar usuarios al montar el componente - solo una vez
   useEffect(() => {
     // No hacer nada mientras authLoading sea true
     if (authLoading) {
       return;
     }
     
-    const fetchUsers = async () => {
-      // Verificar permisos explícitamente
-      if (userRole !== 'admin') {
-        console.log('No tienes permisos de administrador para ver usuarios');
-        navigate('/unauthorized');
-        return;
-      }
-      
-      setLoading(true);
-      setError('');
-      
-      try {
-        addDebugMessage(`Intentando obtener usuarios con rol: ${userRole}`);
-        const usersList = await getAllUsers();
-        setUsers(usersList);
-        addDebugMessage(`Usuarios cargados correctamente: ${usersList.length}`);
-      } catch (error) {
-        console.error('Error al cargar usuarios:', error);
-        setError('Error al cargar usuarios: ' + error.message);
-        addDebugMessage(`Error al cargar usuarios: ${error.message}`);
-        
-        // Error específico para permisos
-        if (error.message && error.message.includes('Missing or insufficient permissions')) {
-          setError('Error de permisos: No tienes autorización para ver esta información. Por favor, contacta al administrador del sistema.');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Solo ejecutar si el rol está definido
-    if (userRole) {
+    // Solo ejecutar si el rol está definido y es la primera carga
+    if (userRole === 'admin' && loading) {
       fetchUsers();
     }
-  }, [userRole, getAllUsers, navigate, authLoading]);
+  }, [userRole, fetchUsers, authLoading, loading]);
   
   // Manejar la creación de un nuevo usuario
   const handleCreateUser = async (e) => {
@@ -108,9 +109,8 @@ const UsersManagement = () => {
       await register(formEmail, formPassword, formName, formRole);
       addDebugMessage('Registro exitoso');
       
-      // Recargar lista de usuarios
+      // Recargar lista de usuarios - directamente del resultado
       const usersList = await getAllUsers();
-      addDebugMessage(`Lista de usuarios recargada: ${usersList.length} usuarios`);
       setUsers(usersList);
       
       // Limpiar formulario y cerrar
@@ -161,9 +161,15 @@ const UsersManagement = () => {
         updatedAt: new Date().toISOString()
       });
       
-      // Recargar lista de usuarios
-      const usersList = await getAllUsers();
-      setUsers(usersList);
+      // Actualizar la lista de usuarios - solo actualizamos localmente el usuario modificado
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === editingUserId 
+            ? { ...user, name: formName, email: formEmail, role: formRole }
+            : user
+        )
+      );
+      
       addDebugMessage('Usuario actualizado correctamente');
       
       // Limpiar formulario y cerrar
@@ -279,22 +285,24 @@ const UsersManagement = () => {
         </div>
       )}
       
-      {/* Debug messages */}
+      {/* Debug messages - collapsed by default to reduce UI updates */}
       {debugMessages.length > 0 && (
-        <div className="bg-gray-100 p-3 mb-4 rounded-lg max-h-40 overflow-y-auto">
-          <h3 className="font-medium mb-2">Debug Messages:</h3>
-          <ul className="text-xs space-y-1">
-            {debugMessages.map((msg, idx) => (
-              <li key={idx} className="font-mono">{msg}</li>
-            ))}
-          </ul>
-          <button 
-            onClick={() => setDebugMessages([])}
-            className="mt-2 text-xs text-blue-600 hover:underline"
-          >
-            Clear messages
-          </button>
-        </div>
+        <details className="bg-gray-100 p-3 mb-4 rounded-lg">
+          <summary className="font-medium cursor-pointer">Debug Messages ({debugMessages.length})</summary>
+          <div className="mt-2 max-h-40 overflow-y-auto">
+            <ul className="text-xs space-y-1">
+              {debugMessages.map((msg, idx) => (
+                <li key={idx} className="font-mono">{msg}</li>
+              ))}
+            </ul>
+            <button 
+              onClick={() => setDebugMessages([])}
+              className="mt-2 text-xs text-blue-600 hover:underline"
+            >
+              Clear messages
+            </button>
+          </div>
+        </details>
       )}
       
       {/* Formulario de creación/edición */}
@@ -396,10 +404,10 @@ const UsersManagement = () => {
       )}
       
       {/* Lista de usuarios */}
-      {loading && !isCreating && !isEditing ? (
-        <div className="text-center py-4">Cargando usuarios...</div>
-      ) : (
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
+        {loading && !isCreating && !isEditing ? (
+          <div className="text-center py-4">Cargando usuarios...</div>
+        ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -418,42 +426,42 @@ const UsersManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.role === 'admin' 
-                        ? 'bg-purple-100 text-purple-800' 
-                        : user.role === 'supervisor'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {user.role === 'admin' 
-                        ? 'Administrador' 
-                        : user.role === 'supervisor'
-                        ? 'Supervisor'
-                        : 'Agente Check-in'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEditClick(user)}
-                      className="text-sand hover:text-midnight mr-3"
-                      title="Editar usuario"
-                    >
-                      <FaEdit />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              
-              {users.length === 0 && (
+              {users.length > 0 ? (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{user.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.role === 'admin' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : user.role === 'supervisor'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {user.role === 'admin' 
+                          ? 'Administrador' 
+                          : user.role === 'supervisor'
+                          ? 'Supervisor'
+                          : 'Agente Check-in'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleEditClick(user)}
+                        className="text-sand hover:text-midnight mr-3"
+                        title="Editar usuario"
+                      >
+                        <FaEdit />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
                   <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
                     No hay usuarios registrados
@@ -462,8 +470,8 @@ const UsersManagement = () => {
               )}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

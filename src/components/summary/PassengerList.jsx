@@ -1,11 +1,11 @@
-// src/components/summary/PassengerList.jsx
+// src/components/summary/PassengerList.jsx actualizado para mostrar estado de embarque
 import React from 'react';
-import { FaUsers } from 'react-icons/fa';
+import { FaUsers, FaCheck, FaPlane } from 'react-icons/fa';
 
 /**
  * Componente que muestra la lista completa de pasajeros
  */
-const PassengerList = ({ passengers, forwardRef }) => {
+const PassengerList = ({ passengers, forwardRef, showBoardingStatus = false }) => {
   return (
     <div className="bg-white rounded-lg shadow p-6 print:shadow-none print:border page-break-before" ref={forwardRef}>
       <h2 className="text-xl font-semibold mb-4 flex items-center">
@@ -22,6 +22,9 @@ const PassengerList = ({ passengers, forwardRef }) => {
                 <th className="border p-2 text-left">ID</th>
                 <th className="border p-2 text-left">Seat</th>
                 <th className="border p-2 text-left">Bag</th>
+                {showBoardingStatus && (
+                  <th className="border p-2 text-left">Status</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -43,6 +46,25 @@ const PassengerList = ({ passengers, forwardRef }) => {
                       ? `${passenger.baggage.pieces.length} (${passenger.baggage.weight} kg)`
                       : '-'}
                   </td>
+                  {showBoardingStatus && (
+                    <td className="border p-2">
+                      {passenger.boarded ? (
+                        <div className="flex items-center">
+                          <FaPlane className="text-green-600 mr-1" />
+                          <span className="text-green-600 text-sm">
+                            Embarcado {passenger.boardedAt ? 
+                              `${new Date(passenger.boardedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : 
+                              ''}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <FaCheck className="text-blue-600 mr-1" />
+                          <span className="text-blue-600 text-sm">Check-in</span>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

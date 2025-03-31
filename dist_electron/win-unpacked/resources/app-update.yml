@@ -1,0 +1,4 @@
+owner: Facundo-Villafane
+repo: goescheck
+provider: github
+updaterCacheDirName: checkin-app-updater

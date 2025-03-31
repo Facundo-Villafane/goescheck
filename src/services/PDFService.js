@@ -7,9 +7,9 @@ import 'jspdf-autotable';
  */
 class PDFService {
   /**
-   * Genera un PDF con los datos del vuelo y pasajeros
+   * Genera un PDF con los datos del vuelo y pasajeros embarcados
    * @param {Object} flightDetails - Detalles del vuelo
-   * @param {Array} passengers - Lista de pasajeros
+   * @param {Array} passengers - Lista de pasajeros embarcados
    * @param {Object} stats - Estadísticas calculadas
    * @param {Function} getSectionsInfo - Función para obtener información de secciones
    * @param {String} logoDataURL - URL de datos de la imagen del logo
@@ -27,8 +27,8 @@ class PDFService {
         
         // Configurar metadatos del documento
         doc.setProperties({
-          title: `Flight Summary ${flightDetails.flightNumber || 'Sin número'}`,
-          subject: 'Check-in Closed',
+          title: `Boarding Summary ${flightDetails.flightNumber || 'Sin número'}`,
+          subject: 'Boarding Status',
           author: 'Goes Airport Services',
           creator: 'Goes Airport Services'
         });
@@ -67,7 +67,7 @@ class PDFService {
         this.generatePassengerListPage(doc, passengers);
         
         // Guardar PDF
-        const fileName = `checkin_${flightDetails.flightNumber || 'flight'}_${new Date().toISOString().split('T')[0]}.pdf`;
+        const fileName = `boarding_${flightDetails.flightNumber || 'flight'}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
         
         resolve(fileName);
@@ -84,7 +84,7 @@ class PDFService {
     // Main Title
 doc.setFontSize(16);
 doc.setTextColor(0);
-doc.text('Check-in Summary', 105, 20, { align: 'center' });
+doc.text('Boarding Summary', 105, 20, { align: 'center' });
 
 // Flight Information
 doc.setFontSize(14);
@@ -108,10 +108,10 @@ doc.text(flightDetails.destination || 'N/A', 80, 64);
 
 // Passenger Statistics
 doc.setFontSize(14);
-doc.text('Passenger Information', 14, 74);
+doc.text('Boarded Passengers', 14, 74);
 
 doc.setFontSize(11);
-doc.text('Total Passengers:', 14, 84);
+doc.text('Total Boarded:', 14, 84);
 doc.text(stats.total.toString(), 80, 84);
 
 doc.text('Adults - Male:', 14, 90);
@@ -203,6 +203,7 @@ const currentDate = new Date().toLocaleString();
 doc.setFontSize(8);
 doc.setTextColor(150);
 doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
+doc.text('BOARDING REPORT - Only boarded passengers are included', 105, 290, { align: 'center' });
   }
 
   /**
@@ -212,7 +213,7 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
     // Título de la página - ajustado para dar espacio al logo
     doc.setFontSize(16);
     doc.setTextColor(0);
-    doc.text('Baggage List', 105, 20, { align: 'center' });
+    doc.text('Boarded Passengers Baggage', 105, 20, { align: 'center' });
     
     // Si hay equipajes
     const baggage = passengers.filter(p => p.baggage && p.baggage.pieces && p.baggage.pieces.length > 0);
@@ -241,7 +242,9 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
             y += 8;
             if (y > 270) {
               doc.addPage();
-              addLogoHeader(); // el logo aquí también
+              // Método addLogoHeader no está definido aquí, pero se usaba en el código original
+              // Por consistencia lo mantenemos comentado
+              // addLogoHeader(); 
               y = 40;
               // Repetir encabezados en la nueva página
               doc.text('Passenger', 14, 40);
@@ -257,7 +260,7 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
     } else {
       doc.setFontSize(12);
       doc.setTextColor(100);
-      doc.text('No baggage registered', 105, 70, { align: 'center' });
+      doc.text('No baggage registered for boarded passengers', 105, 70, { align: 'center' });
     }
     
     // Pie de página
@@ -265,6 +268,7 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
+    doc.text('BOARDING REPORT - Only boarded passengers are included', 105, 290, { align: 'center' });
   }
 
   /**
@@ -274,7 +278,7 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
     // Título de la página - ajustado para dar espacio al logo
     doc.setFontSize(16);
     doc.setTextColor(0);
-    doc.text('Passenger List', 105, 20, { align: 'center' });
+    doc.text('Boarded Passenger List', 105, 20, { align: 'center' });
     
     if (passengers.length > 0) {
       // Encabezados
@@ -283,41 +287,55 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
       doc.text('Type', 70, 40);
       doc.text('ID', 90, 40);
       doc.text('Seat', 140, 40);
-      doc.text('Baggage', 160, 40);
+      doc.text('Boarding Time', 160, 40);
       
       // Línea separadora
-      doc.line(14, 42, 180, 42);
+      doc.line(14, 42, 196, 42);
+      
+      // Ordenar pasajeros por hora de embarque (del más reciente al más antiguo)
+      const sortedPassengers = [...passengers].sort((a, b) => {
+        if (!a.boardedAt) return 1;
+        if (!b.boardedAt) return -1;
+        return new Date(b.boardedAt) - new Date(a.boardedAt);
+      });
       
       // Listar pasajeros
       let y = 48;
-      passengers.forEach(passenger => {
+      sortedPassengers.forEach(passenger => {
         doc.text(`${passenger.lastName}, ${passenger.firstName}`, 14, y);
         doc.text(`${passenger.passengerType || 'ADT'}${passenger.passengerType === 'ADT' ? ` (${passenger.gender || 'M'})` : ''}`, 70, y);
-        doc.text(`${passenger.documentType || 'DNI'}: ${passenger.documentNumber}`, 90, y);
+        doc.text(`${passenger.documentNumber}`, 90, y);
         doc.text(passenger.seat || '-', 140, y);
-        doc.text(passenger.baggage && passenger.baggage.pieces 
-          ? `${passenger.baggage.pieces.length} (${passenger.baggage.weight} kg)`
-          : '-', 160, y);
+        
+        // Formatear la hora de embarque
+        let boardingTime = '-';
+        if (passenger.boardedAt) {
+          const date = new Date(passenger.boardedAt);
+          boardingTime = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        doc.text(boardingTime, 160, y);
         
         y += 8;
         if (y > 270) {
           doc.addPage();
-          addLogoHeader(); //  el logo aquí también
+          // Método addLogoHeader no está definido aquí, pero se usaba en el código original
+          // Por consistencia lo mantenemos comentado
+          // addLogoHeader();
           y = 40;
           // Repetir encabezados en la nueva página
           doc.text('Passenger', 14, 40);
           doc.text('Type', 70, 40);
           doc.text('ID', 90, 40);
           doc.text('Seat', 140, 40);
-          doc.text('Baggage', 160, 40);
-          doc.line(14, y+2, 180, y+2);
+          doc.text('Boarding Time', 160, 40);
+          doc.line(14, y+2, 196, y+2);
           y += 8;
         }
       });
     } else {
       doc.setFontSize(12);
       doc.setTextColor(100);
-      doc.text('No checked-in passengers', 105, 70, { align: 'center' });
+      doc.text('No boarded passengers', 105, 70, { align: 'center' });
     }
     
     // Pie de página
@@ -325,6 +343,7 @@ doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(`Generated on ${currentDate}`, 105, 285, { align: 'center' });
+    doc.text('BOARDING REPORT - Only boarded passengers are included', 105, 290, { align: 'center' });
   }
 }
 

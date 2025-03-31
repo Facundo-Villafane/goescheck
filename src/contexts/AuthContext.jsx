@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import { 
   getAuth, 
   createUserWithEmailAndPassword,
@@ -34,6 +34,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [usersMap, setUsersMap] = useState({}); // Mapa de IDs de usuario a detalles de usuario
   const auth = getAuth();
+  
+  // Use a ref to track if we've already loaded users to prevent infinite loops
+  const usersLoadedRef = useRef(false);
+  // Cache reference for users
+  const usersCache = useRef([]);
 
   // Iniciar sesión con correo y contraseña
   const login = async (email, password) => {
@@ -63,6 +68,9 @@ export const AuthProvider = ({ children }) => {
       await firebaseSignOut(auth);
       setUserName(null);
       setUserDetails(null);
+      // Reset the users loaded flag when logging out
+      usersLoadedRef.current = false;
+      usersCache.current = [];
       console.log("Sesión cerrada correctamente");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
@@ -116,10 +124,14 @@ export const AuthProvider = ({ children }) => {
         await setDoc(doc(db, 'users', user.uid), userData);
         console.log("Documento de usuario creado en Firestore");
         
+        // Add to local cache
+        const newUser = { id: user.uid, ...userData };
+        usersCache.current = [...usersCache.current, newUser];
+        
         // Actualizar el mapa de usuarios en memoria
         setUsersMap(prev => ({
           ...prev,
-          [user.uid]: { id: user.uid, ...userData }
+          [user.uid]: newUser
         }));
         
       } catch (firestoreError) {
@@ -157,17 +169,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Obtener todos los usuarios (solo para admin)
-  const getAllUsers = async () => {
+  // Obtener todos los usuarios (solo para admin) - Using useCallback to memoize
+  const getAllUsers = useCallback(async () => {
     try {
-      console.log("getAllUsers - Verificando permisos, rol actual:", userRole);
-      
-      // Verificar si el usuario actual es admin
+      // First check if user has admin role
       if (userRole !== 'admin') {
         console.error("Error: No tienes permisos para acceder a esta información");
         throw new Error('No tienes permisos para acceder a esta información');
       }
       
+      // Return cached users if available to prevent excessive Firestore calls
+      if (usersCache.current.length > 0) {
+        console.log("getAllUsers - Returning cached users:", usersCache.current.length);
+        return usersCache.current;
+      }
+      
+      // If we get here, we need to load from Firestore
       console.log("getAllUsers - Consultando colección de usuarios");
       const usersCollection = collection(db, 'users');
       const usersSnapshot = await getDocs(usersCollection);
@@ -181,6 +198,9 @@ export const AuthProvider = ({ children }) => {
         usersMapUpdate[doc.id] = userData;
       });
       
+      // Update the cache
+      usersCache.current = users;
+      
       // Actualizar el mapa de usuarios
       setUsersMap(usersMapUpdate);
       
@@ -190,7 +210,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Error al obtener usuarios:", error);
       throw error;
     }
-  };
+  }, [userRole]); // Only depends on userRole
 
   // Obtener nombre de usuario por ID
   const getUserNameById = (userId) => {
@@ -206,6 +226,11 @@ export const AuthProvider = ({ children }) => {
       }
       
       await setDoc(doc(db, 'users', userId), userData, { merge: true });
+      
+      // Update the cache
+      usersCache.current = usersCache.current.map(user => 
+        user.id === userId ? { ...user, ...userData } : user
+      );
       
       // Actualizar el mapa de usuarios en memoria
       setUsersMap(prev => ({
@@ -276,9 +301,11 @@ export const AuthProvider = ({ children }) => {
         setUserRole(role);
         
         // Precargar lista de usuarios si es admin
-        if (role === 'admin') {
+        if (role === 'admin' && !usersLoadedRef.current) {
           try {
+            console.log("onAuthStateChanged - Precargando usuarios como admin");
             await getAllUsers();
+            usersLoadedRef.current = true;
           } catch (error) {
             console.error("Error precargando usuarios:", error);
           }
@@ -287,13 +314,16 @@ export const AuthProvider = ({ children }) => {
         setUserRole(null);
         setUserName(null);
         setUserDetails(null);
+        // Reset the users loaded flag when user changes
+        usersLoadedRef.current = false;
+        usersCache.current = [];
       }
       
       setLoading(false);
     });
     
     return () => unsubscribe();
-  }, [auth]);
+  }, [auth, getAllUsers]);
 
   // Verificar si un usuario puede acceder a una sección específica
   const canAccessSection = (section) => {

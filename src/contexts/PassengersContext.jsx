@@ -1,7 +1,7 @@
 // src/contexts/PassengersContext.jsx
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { db } from '../firebase/config';
-import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 const PassengersContext = createContext();
 
@@ -385,6 +385,191 @@ export const PassengersProvider = ({ children }) => {
     return updatedPassenger;
   };
 
+  
+
+  const boardPassenger = async (passenger) => {
+    if (!flightId) return;
+    
+    // Asegurarnos de que el pasajero tenga flightId y añadir timestamp
+    const updatedPassenger = { 
+      ...passenger, 
+      flightId, 
+      boarded: true,
+      boardedAt: new Date().toISOString() 
+    };
+    
+    // Actualizar estado local
+    setPassengerList(prevList => 
+      prevList.map(p => p.id === passenger.id ? updatedPassenger : p)
+    );
+    
+    // Guardar en localStorage (mantiene compatibilidad)
+    saveToLocalStorage();
+    
+    // Intentar sincronizar con Firebase
+    if (isOnline) {
+      try {
+        const passengerRef = doc(db, 'passengers', passenger.id);
+        await updateDoc(passengerRef, {
+          boarded: true,
+          boardedAt: new Date().toISOString()
+        });
+        
+        // También actualizar el registro de embarque del vuelo
+        const flightRef = doc(db, 'flights', flightId);
+        await updateDoc(flightRef, {
+          boardedPassengers: arrayUnion(passenger.id),
+          lastBoardingUpdate: new Date().toISOString()
+        });
+        
+        console.log(`Pasajero ${passenger.lastName} embarcado y sincronizado con Firebase`);
+      } catch (error) {
+        console.error('Error actualizando estado de embarque en Firebase:', error);
+      }
+    }
+    
+    return updatedPassenger;
+  };
+  
+  // Función para deshacer el embarque de un pasajero
+  const unboardPassenger = async (passenger) => {
+    if (!flightId) return;
+    
+    // Actualizar pasajero
+    const updatedPassenger = { 
+      ...passenger, 
+      boarded: false,
+      boardedAt: null
+    };
+    
+    // Actualizar estado local
+    setPassengerList(prevList => 
+      prevList.map(p => p.id === passenger.id ? updatedPassenger : p)
+    );
+    
+    // Guardar en localStorage
+    saveToLocalStorage();
+    
+    // Intentar sincronizar con Firebase
+    if (isOnline) {
+      try {
+        const passengerRef = doc(db, 'passengers', passenger.id);
+        await updateDoc(passengerRef, {
+          boarded: false,
+          boardedAt: null
+        });
+        
+        // También actualizar el registro de embarque del vuelo
+        const flightRef = doc(db, 'flights', flightId);
+        await updateDoc(flightRef, {
+          boardedPassengers: arrayRemove(passenger.id),
+          lastBoardingUpdate: new Date().toISOString()
+        });
+        
+        console.log(`Embarque revertido para pasajero ${passenger.lastName}`);
+      } catch (error) {
+        console.error('Error actualizando estado de embarque en Firebase:', error);
+      }
+    }
+    
+    return updatedPassenger;
+  };
+  
+  // Función para sincronizar todos los datos de embarque con Firebase
+  const syncBoardingData = async () => {
+    if (!flightId) return false;
+    
+    // Si estamos offline, no intentamos sincronizar
+    if (!isOnline) {
+      console.log("No hay conexión a internet. La sincronización no es posible en este momento.");
+      return false;
+    }
+    
+    try {
+      console.log('Sincronizando datos de embarque con Firebase...');
+      
+      // Obtener datos de localStorage
+      const boardingDataKey = `boarding_${flightId}`;
+      const savedBoardingData = localStorage.getItem(boardingDataKey);
+      
+      if (!savedBoardingData) {
+        console.log('No hay datos de embarque locales para sincronizar');
+        // Vamos a buscar en pasajeros existentes si hay alguno marcado como embarcado
+        const boardedPassengers = passengerList.filter(p => p.boarded === true);
+        
+        if (boardedPassengers.length === 0) {
+          console.log('No hay pasajeros embarcados para sincronizar');
+          return true; // Consideramos que todo está sincronizado
+        }
+        
+        // Si hay pasajeros marcados como embarcados, sincronizamos el vuelo
+        const boardedIds = boardedPassengers.map(p => p.id);
+        
+        // Actualizar el documento del vuelo con los pasajeros embarcados
+        try {
+          const flightRef = doc(db, 'flights', flightId);
+          await updateDoc(flightRef, {
+            boardedPassengers: boardedIds,
+            lastBoardingUpdate: new Date().toISOString(),
+            'boardingStatus.totalCheckedIn': checkedInPassengers.length,
+            'boardingStatus.totalBoarded': boardedIds.length,
+            'boardingStatus.completionPercentage': checkedInPassengers.length > 0 ? 
+              Math.round((boardedIds.length / checkedInPassengers.length) * 100) : 0
+          });
+          
+          console.log(`Sincronizado estado del vuelo con ${boardedIds.length} pasajeros embarcados`);
+          return true;
+        } catch (error) {
+          console.error('Error actualizando estado del vuelo:', error);
+          return false;
+        }
+      }
+      
+      // Parsear los datos guardados
+      const { boardedIds, boardedPassengers, lastUpdated } = JSON.parse(savedBoardingData);
+      
+      // Verificar si hay algo que sincronizar
+      if (!boardedPassengers || boardedPassengers.length === 0) {
+        console.log('No hay pasajeros embarcados para sincronizar en localStorage');
+        return true;
+      }
+      
+      console.log(`Encontrados ${boardedPassengers.length} pasajeros para sincronizar`);
+      
+      // Actualizar cada pasajero embarcado en Firebase
+      const batch = writeBatch(db);
+      
+      boardedPassengers.forEach(passenger => {
+        const passengerRef = doc(db, 'passengers', passenger.id);
+        batch.update(passengerRef, {
+          boarded: true,
+          boardedAt: passenger.boardedAt || new Date().toISOString()
+        });
+      });
+      
+      // Actualizar el documento del vuelo con los pasajeros embarcados
+      const flightRef = doc(db, 'flights', flightId);
+      batch.update(flightRef, {
+        boardedPassengers: boardedIds,
+        lastBoardingUpdate: new Date().toISOString(),
+        'boardingStatus.totalCheckedIn': checkedInPassengers.length,
+        'boardingStatus.totalBoarded': boardedIds.length,
+        'boardingStatus.completionPercentage': checkedInPassengers.length > 0 ? 
+          Math.round((boardedIds.length / checkedInPassengers.length) * 100) : 0
+      });
+      
+      // Ejecutar batch
+      await batch.commit();
+      
+      console.log(`Sincronizados ${boardedIds.length} pasajeros embarcados con Firebase`);
+      return true;
+    } catch (error) {
+      console.error('Error sincronizando datos de embarque:', error);
+      return false;
+    }
+  };
+  
+
   return (
     <PassengersContext.Provider value={{ 
       passengerList, 
@@ -400,7 +585,10 @@ export const PassengersProvider = ({ children }) => {
       saveToLocalStorage,
       isOnline,
       setFlightId,
-      loading
+      loading,
+      boardPassenger,
+      unboardPassenger,
+      syncBoardingData
     }}>
       {children}
     </PassengersContext.Provider>
