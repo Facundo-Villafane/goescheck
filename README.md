@@ -54,8 +54,8 @@ GOES Check-in System is a comprehensive desktop application designed for airline
 ### Development Setup
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/goes-checkin-system.git
-   cd goes-checkin-system
+   git clone https://github.com/Facundo-Villafane/goescheck.git
+   cd goescheck
    ```
 
 2. Install dependencies
