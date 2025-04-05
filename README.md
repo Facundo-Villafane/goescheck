@@ -1,6 +1,6 @@
 # GOES Check-in System
 
-![GOES Check-in System](https://via.placeholder.com/800x400?text=GOES+Check-in+System) <!-- Replace with your actual screenshot or logo -->
+![Login](https://checkin.aeroboost.com.ar/01.gif)
 
 ## Overview
 
@@ -27,7 +27,6 @@ GOES Check-in System is a comprehensive desktop application designed for airline
 ## Screenshots
 
 <div align="center">
-  <img src="https://checkin.aeroboost.com.ar/01.gif" alt="Login" width="45%" />
   <img src="https://checkin.aeroboost.com.ar/01.png" alt="Home" width="45%" />
   <img src="https://checkin.aeroboost.com.ar/02.png" alt="Check-in Screen" width="45%" />
   <img src="https://checkin.aeroboost.com.ar/03.png" alt="Boarding" width="45%" />
