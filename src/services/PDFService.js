@@ -59,7 +59,7 @@ class PDFService {
           doc.text("Flight Number: " + (flightDetails.flightNumber || "-"), 20, 42);
           doc.text("Flight Date  : " + (flightDetails.date || "-"), 20, 49);
           doc.text("Departing    : " + (flightDetails.origin || "-"), 20, 56);
-          doc.text("Registration : " + (flightDetails.aircraftRegistration || "-"), 20, 63);
+          doc.text("Registration : " + (flightDetails.aircraft || "-"), 20, 63);
           
           // --- Línea de encabezado de tabla ---
           doc.setFontSize(9);

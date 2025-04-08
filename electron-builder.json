@@ -2,10 +2,23 @@
   "appId": "com.goes.checkin",
   "productName": "GOES Check-in System",
   "copyright": "Copyright © 2025",
+
   "directories": {
-    "output": "dist_electron",
-    "buildResources": "build"
+    "buildResources": "resources",
+    "output": "release"
   },
+  "nsis": {
+    "oneClick": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "build/icons/icon.ico",
+    "uninstallerIcon": "build/icons/icon.ico",
+    "uninstallDisplayName": "GOES Check-in System",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  
+
   "files": [
     "dist/**/*",
     "electron/**/*",

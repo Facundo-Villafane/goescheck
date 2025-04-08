@@ -2,13 +2,14 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 // Try to load ExcelJS with robust error handling
+// Importación robusta de ExcelJS
 let ExcelJS;
 try {
   ExcelJS = require('exceljs');
   console.log('ExcelJS loaded successfully');
 } catch (error) {
   console.error('Failed to load ExcelJS:', error);
-  // Create a dummy ExcelJS object that will show error messages
+  // Crear un objeto ficticio de ExcelJS que mostrará mensajes de error
   ExcelJS = {
     Workbook: class {
       constructor() {

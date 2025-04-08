@@ -28,6 +28,21 @@ const FlightInfoTab = ({ flightDetails, setFlightDetails, onSave, onShowLogoMana
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nombre de la Aerolínea *
+          </label>
+          <input
+            type="text"
+            name="airlineCode"
+            value={flightDetails.airlineCode || ''}
+            onChange={(e) => setFlightDetails({...flightDetails, airlineCode: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="Ej: Aeroregional, Azul, etc."
+          />
+          <p className="mt-1 text-xs text-gray-500">Puede ser código IATA de la aerolínea (2 letras)</p>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Número de Vuelo *
           </label>
           <input

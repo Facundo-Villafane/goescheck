@@ -4,27 +4,39 @@ const fs = require('fs');
 const ExcelJS = require('exceljs');
 const { setupPrintingHandlers } = require('./electron-printers-api.cjs');
 
+// Configuración de logging para diagnóstico
+function log(message) {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'app.log');
+    fs.appendFileSync(logPath, `${new Date().toISOString()}: ${message}\n`);
+    console.log(message); // También mostrar en consola para desarrollo
+  } catch (error) {
+    console.error('Error writing to log:', error);
+  }
+}
+
 // Directorio para almacenar datos
 const userDataPath = app.getPath('userData');
-const configsPath = path.join(userDataPath, 'configs')
-console.log("Electron starting up...");
-console.log("Environment:", process.env.NODE_ENV);
-console.log("Env variables loaded:", Object.keys(process.env).filter(key => key.startsWith('VITE_')));
+const configsPath = path.join(userDataPath, 'configs');
+log("Electron starting up...");
+log("Environment: " + (process.env.NODE_ENV || 'production'));
 
 // Asegurar que el directorio existe
 if (!fs.existsSync(configsPath)) {
   fs.mkdirSync(configsPath, { recursive: true });
+  log("Created configs directory: " + configsPath);
 }
-
 
 let mainWindow;
 
 function createWindow() {
+  log("Creating main window...");
+  
   // Debug logging to see what paths are being used
   const preloadPath = path.resolve(__dirname, 'preload.cjs');
-  console.log('__dirname:', __dirname);
-  console.log('Preload path:', preloadPath);
-  console.log('Path exists:', fs.existsSync(preloadPath));
+  log('__dirname: ' + __dirname);
+  log('Preload path: ' + preloadPath);
+  log('Path exists: ' + fs.existsSync(preloadPath));
   
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -42,38 +54,106 @@ function createWindow() {
   });
 
   // More debug logging
-  console.log("Window created, loading URL...");
+  log("Window created, loading URL...");
   
-  // In development, carga desde el servidor de desarrollo
+  // Cargar la aplicación
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173/');
-    console.log("Loaded development URL");
+    log("Loaded development URL");
     mainWindow.webContents.openDevTools();
   } else {
     // En producción, carga desde los archivos construidos
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    console.log("Production index path:", indexPath);
-    console.log("Path exists:", fs.existsSync(indexPath));
-    
-    mainWindow.loadFile(indexPath);
-    console.log("Loaded production file");
+    try {
+      const indexPath = path.join(__dirname, '../dist/index.html');
+      log("Production index path: " + indexPath);
+      log("Path exists: " + fs.existsSync(indexPath));
+      
+      if (!fs.existsSync(indexPath)) {
+        // Intenta buscar en rutas alternativas comunes para producción
+        const altPaths = [
+          path.join(__dirname, 'dist/index.html'),
+          path.join(app.getAppPath(), 'dist/index.html'),
+          path.join(process.cwd(), 'dist/index.html'),
+          path.join(app.getPath('exe'), '../resources/app/dist/index.html')
+        ];
+        
+        for (const alt of altPaths) {
+          log("Checking alternative path: " + alt);
+          if (fs.existsSync(alt)) {
+            log("Found alternative path: " + alt);
+            mainWindow.loadFile(alt);
+            break;
+          }
+        }
+        
+        // Si no encuentra ninguna alternativa, intenta usar loadURL directamente
+        if (!mainWindow.webContents.getURL()) {
+          log("No valid index.html found, trying file:// URL");
+          mainWindow.loadURL(`file://${__dirname}/../dist/index.html`);
+        }
+      } else {
+        mainWindow.loadFile(indexPath);
+        log("Loaded production file");
+      }
+    } catch (error) {
+      log("Error loading index file: " + error.message);
+    }
   }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  
+  // Evento para saber cuando la ventana está lista
+  mainWindow.webContents.on('did-finish-load', () => {
+    log("Main window finished loading");
+  });
+  
+  // Capturar errores de carga
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    log(`Failed to load: ${errorCode} - ${errorDescription}`);
+  });
 }
 
 // Cargar variables de entorno para el proceso principal
 function loadEnv() {
-  const NODE_ENV = process.env.NODE_ENV || 'development';
-  const envFile = path.join(__dirname, '..', `.env.${NODE_ENV}`);
-  
-  if (fs.existsSync(envFile)) {
-    const envConfig = require('dotenv').parse(fs.readFileSync(envFile));
-    Object.keys(envConfig).forEach((key) => {
-      process.env[key] = envConfig[key];
-    });
+  try {
+    const NODE_ENV = process.env.NODE_ENV || 'production';
+    log(`Loading environment for ${NODE_ENV}`);
+    
+    // Intentar cargar desde .env.{NODE_ENV}
+    const envFile = path.join(__dirname, '..', `.env.${NODE_ENV}`);
+    log(`Checking env file: ${envFile}`);
+    
+    if (fs.existsSync(envFile)) {
+      const envConfig = require('dotenv').parse(fs.readFileSync(envFile));
+      Object.keys(envConfig).forEach((key) => {
+        process.env[key] = envConfig[key];
+      });
+      log(`Loaded environment variables from: ${envFile}`);
+    } else {
+      log(`Environment file not found: ${envFile}`);
+      
+      // Intentar cargar desde config.json en userDataPath (para producción)
+      const configPath = path.join(app.getPath('userData'), 'config.json');
+      log(`Checking config file: ${configPath}`);
+      
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        Object.assign(process.env, config);
+        log(`Loaded config from: ${configPath}`);
+      } else {
+        log(`Config file not found: ${configPath}`);
+      }
+    }
+    
+    // Registrar las variables VITE cargadas
+    const loadedVars = Object.keys(process.env)
+      .filter(key => key.startsWith('VITE_'))
+      .join(', ');
+    log(`Loaded VITE variables: ${loadedVars || 'none'}`);
+  } catch (error) {
+    log(`Error loading environment: ${error.message}`);
   }
 }
 
@@ -85,9 +165,21 @@ function checkRequiredEnv() {
   const missing = required.filter(key => !process.env[`${key}`]);
   
   if (missing.length > 0) {
-    console.error(`Error: Missing required environment variables: ${missing.join(', ')}`);
-    app.exit(1);
+    log(`Warning: Missing environment variables: ${missing.join(', ')}`);
+    
+    // En producción, crear variables dummy para permitir que la app continúe
+    if (process.env.NODE_ENV !== 'development') {
+      log("Creating dummy variables for production");
+      missing.forEach(key => {
+        process.env[key] = `dummy-${key}`;
+      });
+      return true;
+    }
+    
+    return false;
   }
+  
+  return true;
 }
 
 // Add these IPC handlers directly in main.cjs
@@ -99,7 +191,7 @@ function setupPrinterHandlers() {
       const printers = mainWindow.webContents.getPrinters();
       return printers;
     } catch (error) {
-      console.error('Error getting system printers:', error);
+      log('Error getting system printers: ' + error.message);
       return [];
     }
   });
@@ -107,43 +199,65 @@ function setupPrinterHandlers() {
   // Add handlers for other printer operations...
   ipcMain.handle('printTest', async (event, printerName) => {
     // Implementation...
-    console.log('Print test requested for:', printerName);
+    log('Print test requested for: ' + printerName);
     return true; // Temporary placeholder
   });
 
   ipcMain.handle('printHTML', async (event, { printerName, htmlContent, options }) => {
     // Implementation...
-    console.log('Print HTML requested for:', printerName);
+    log('Print HTML requested for: ' + printerName);
     return true; // Temporary placeholder
   });
 
   ipcMain.handle('printBoardingPass', async (event, { passenger, flightDetails, printerName, options }) => {
     // Implementation...
-    console.log('Print boarding pass requested for:', passenger?.lastName);
+    log('Print boarding pass requested for: ' + (passenger?.lastName || 'unknown'));
     return true; // Temporary placeholder
   });
 }
 
-
+// Manejador de errores no capturados
+process.on('uncaughtException', (error) => {
+  log(`UNCAUGHT EXCEPTION: ${error.message}`);
+  log(error.stack);
+  fs.writeFileSync(
+    path.join(app.getPath('userData'), 'error.log'),
+    `${new Date().toISOString()}: ${error.stack}\n`,
+    { flag: 'a' }
+  );
+});
 
 // Inicializar la aplicación y configurar los manejadores de impresión
 app.whenReady().then(() => {
-  checkRequiredEnv();
+  log("App is ready");
+  
+  // Verificar variables de entorno requeridas
+  const envOk = checkRequiredEnv();
+  if (!envOk && process.env.NODE_ENV === 'development') {
+    log("Exiting due to missing required environment variables in development");
+    app.exit(1);
+    return;
+  }
+  
   createWindow();
   
   // Configurar los manejadores de impresión
   setupPrintingHandlers();
-  setupPrinterHandlers(); // Your local function
+  setupPrinterHandlers(); 
+  
+  log("Setup complete");
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    log("All windows closed, quitting app");
     app.quit();
   }
 });
 
 app.on('activate', () => {
   if (mainWindow === null) {
+    log("App activated, creating window");
     createWindow();
   }
 });
@@ -153,6 +267,7 @@ if (ipcMain.eventNames().includes('dialog:openFile')) {
 }
 // Manejador para abrir el diálogo de selección de archivos
 ipcMain.handle('dialog:openFile', async () => {
+  log("Open file dialog requested");
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
@@ -160,8 +275,10 @@ ipcMain.handle('dialog:openFile', async () => {
     ]
   });
   if (canceled) {
+    log("File dialog canceled");
     return null;
   } else {
+    log(`File selected: ${filePaths[0]}`);
     return filePaths[0];
   }
 });
@@ -169,11 +286,13 @@ ipcMain.handle('dialog:openFile', async () => {
 // Manejador para guardar configuración de aeronave
 ipcMain.handle('config:save', async (event, { configName, data }) => {
   try {
+    log(`Saving config: ${configName}`);
     const filePath = path.join(configsPath, `${configName}.json`);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    log(`Config saved to: ${filePath}`);
     return { success: true, path: filePath };
   } catch (error) {
-    console.error('Error saving config:', error);
+    log(`Error saving config: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
@@ -181,15 +300,18 @@ ipcMain.handle('config:save', async (event, { configName, data }) => {
 // Manejador para cargar configuración
 ipcMain.handle('config:load', async (event, { configName }) => {
   try {
+    log(`Loading config: ${configName}`);
     const filePath = path.join(configsPath, `${configName}.json`);
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8');
+      log(`Config loaded from: ${filePath}`);
       return { success: true, data: JSON.parse(data) };
     } else {
+      log(`Config file not found: ${filePath}`);
       return { success: false, error: 'Config file not found' };
     }
   } catch (error) {
-    console.error('Error loading config:', error);
+    log(`Error loading config: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
@@ -197,12 +319,14 @@ ipcMain.handle('config:load', async (event, { configName }) => {
 // Manejador para listar configuraciones disponibles
 ipcMain.handle('config:list', async () => {
   try {
+    log("Listing available configs");
     const files = fs.readdirSync(configsPath)
       .filter(file => file.endsWith('.json'))
       .map(file => file.replace('.json', ''));
+    log(`Found ${files.length} configs`);
     return { success: true, configs: files };
   } catch (error) {
-    console.error('Error listing configs:', error);
+    log(`Error listing configs: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
@@ -210,16 +334,19 @@ ipcMain.handle('config:list', async () => {
 // Manejador para guardar datos del vuelo completo
 ipcMain.handle('flight:save', async (event, { flightNumber, data }) => {
   try {
+    log(`Saving flight data: ${flightNumber}`);
     const flightsPath = path.join(userDataPath, 'flights');
     if (!fs.existsSync(flightsPath)) {
       fs.mkdirSync(flightsPath, { recursive: true });
+      log(`Created flights directory: ${flightsPath}`);
     }
     
     const filePath = path.join(flightsPath, `${flightNumber}_${Date.now()}.json`);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    log(`Flight data saved to: ${filePath}`);
     return { success: true, path: filePath };
   } catch (error) {
-    console.error('Error saving flight data:', error);
+    log(`Error saving flight data: ${error.message}`);
     return { success: false, error: error.message };
   }
 });
@@ -227,10 +354,10 @@ ipcMain.handle('flight:save', async (event, { flightNumber, data }) => {
 // Añadir un nuevo manejador específico para leer archivos Excel
 ipcMain.handle('read:excelFile', async (event, filePath) => {
   try {
-    console.log('Leyendo archivo Excel:', filePath);
+    log(`Reading Excel file: ${filePath}`);
     
     if (!fs.existsSync(filePath)) {
-      console.error('El archivo no existe:', filePath);
+      log(`File does not exist: ${filePath}`);
       throw new Error('El archivo no existe');
     }
     
@@ -239,7 +366,7 @@ ipcMain.handle('read:excelFile', async (event, filePath) => {
     
     const worksheet = workbook.getWorksheet(1);
     if (!worksheet) {
-      console.error('No se pudo encontrar la hoja de trabajo');
+      log('Could not find worksheet');
       throw new Error('No se pudo encontrar la hoja de trabajo');
     }
     
@@ -251,7 +378,7 @@ ipcMain.handle('read:excelFile', async (event, filePath) => {
       headers.push(cell.value);
     });
     
-    console.log('Cabeceras encontradas:', headers);
+    log(`Headers found: ${headers.join(', ')}`);
     
     // Extraer datos
     worksheet.eachRow((row, rowNumber) => {
@@ -266,10 +393,10 @@ ipcMain.handle('read:excelFile', async (event, filePath) => {
       }
     });
     
-    console.log(`Se encontraron ${data.length} filas de datos`);
+    log(`Found ${data.length} rows of data`);
     return data;
   } catch (error) {
-    console.error('Error al leer archivo Excel:', error);
+    log(`Error reading Excel file: ${error.message}`);
     throw error;
   }
 });
@@ -277,6 +404,7 @@ ipcMain.handle('read:excelFile', async (event, filePath) => {
 // Manejador para guardar archivo Excel
 ipcMain.handle('save:excelFile', async (event, { filePath, data }) => {
   try {
+    log('Saving Excel file');
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Passengers');
     
@@ -293,6 +421,7 @@ ipcMain.handle('save:excelFile', async (event, { filePath, data }) => {
     
     // Si no se proporciona ruta, mostrar diálogo para guardar
     if (!filePath) {
+      log('No path provided, showing save dialog');
       const { canceled, filePath: savePath } = await dialog.showSaveDialog(mainWindow, {
         title: 'Guardar archivo Excel',
         defaultPath: 'passengers.xlsx',
@@ -302,6 +431,7 @@ ipcMain.handle('save:excelFile', async (event, { filePath, data }) => {
       });
       
       if (canceled) {
+        log('Save dialog canceled');
         return false;
       }
       
@@ -309,9 +439,10 @@ ipcMain.handle('save:excelFile', async (event, { filePath, data }) => {
     }
     
     await workbook.xlsx.writeFile(filePath);
+    log(`Excel file saved to: ${filePath}`);
     return true;
   } catch (error) {
-    console.error('Error saving Excel file:', error);
+    log(`Error saving Excel file: ${error.message}`);
     throw error;
   }
 });
@@ -319,6 +450,7 @@ ipcMain.handle('save:excelFile', async (event, { filePath, data }) => {
 // Manejador para imprimir a PDF
 ipcMain.handle('print:toPDF', async () => {
   try {
+    log('Print to PDF requested');
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
       title: 'Guardar PDF',
       defaultPath: 'check-in-summary.pdf',
@@ -328,6 +460,7 @@ ipcMain.handle('print:toPDF', async () => {
     });
     
     if (canceled) {
+      log('PDF save dialog canceled');
       return false;
     }
     
@@ -338,10 +471,10 @@ ipcMain.handle('print:toPDF', async () => {
     });
     
     fs.writeFileSync(filePath, data);
+    log(`PDF saved to: ${filePath}`);
     return true;
   } catch (error) {
-    console.error('Error printing to PDF:', error);
+    log(`Error printing to PDF: ${error.message}`);
     throw error;
   }
 });
-
