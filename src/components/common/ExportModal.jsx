@@ -1,6 +1,6 @@
 // src/components/common/ExportModal.jsx
 import React from 'react';
-import { FaPrint, FaFilePdf } from 'react-icons/fa';
+import { FaPrint, FaFilePdf, FaPlane } from 'react-icons/fa';
 
 /**
  * Modal para exportar o imprimir
@@ -8,8 +8,9 @@ import { FaPrint, FaFilePdf } from 'react-icons/fa';
  * @param {Function} onClose - Función para cerrar el modal
  * @param {Function} onExportPDF - Función para exportar a PDF
  * @param {Function} onPrint - Función para imprimir
+ * @param {Function} onExportDCS - Función para exportar el reporte DCS
  */
-const ExportModal = ({ show, onClose, onExportPDF, onPrint }) => {
+const ExportModal = ({ show, onClose, onExportPDF, onPrint, onExportDCS }) => {
   if (!show) return null;
   
   return (
@@ -35,6 +36,20 @@ const ExportModal = ({ show, onClose, onExportPDF, onPrint }) => {
           >
             <FaPrint className="mr-2" /> Imprimir
           </button>
+          
+          {/* Botón para reporte DCS (solo si la función está disponible) */}
+          {onExportDCS && (
+            <button
+              onClick={() => {
+                onExportDCS();
+                onClose();
+              }}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center justify-center"
+            >
+              <FaPlane className="mr-2" /> Reporte DCS
+            </button>
+          )}
+          
           <button
             onClick={onClose}
             className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md"

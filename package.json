@@ -3,21 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-
   "author": {
-  "name": "Facundo Villafañe",
-  "email": "favillafane@aeroboost.com.ar"
-},
-
-"description": "Sistema de check-in y embarque para aerolíneas",
-
+    "name": "Facundo Villafañe",
+    "email": "favillafane@aeroboost.com.ar"
+  },
+  "description": "Sistema de check-in y embarque para aerolíneas",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"cross-env NODE_ENV=development electron electron/main.cjs\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder --config electron-builder.json"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.15",
@@ -28,6 +25,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
+    "papaparse": "^5.4.1",
     "pdf417-generator": "^1.0.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

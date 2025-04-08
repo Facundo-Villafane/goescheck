@@ -1,19 +1,43 @@
 // src/components/summary/BoardedStatsSection.jsx
-import React from 'react';
-import { FaUsers, FaMale, FaFemale, FaChild, FaBaby, FaSuitcase, FaPlaneArrival } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaUsers, FaMale, FaFemale, FaChild, FaBaby, FaSuitcase, FaPlaneArrival, FaExchangeAlt } from 'react-icons/fa';
 
 /**
  * Componente que muestra estadísticas específicas de pasajeros embarcados
  */
 const BoardedStatsSection = ({ stats, forwardRef }) => {
+  // Estado para controlar la unidad de peso, inicializado desde localStorage
+  const [weightUnit, setWeightUnit] = useState(() => {
+    return localStorage.getItem('weightUnit') || 'kg';
+  });
+  
+  // Función para convertir kg a libras
+  const kgToLbs = (kg) => (kg * 2.20462).toFixed(1);
+  
+  // Actualizar localStorage cuando cambia la unidad
+  useEffect(() => {
+    localStorage.setItem('weightUnit', weightUnit);
+  }, [weightUnit]);
+  
   // Calcular porcentajes
   const malePercentage = stats.total > 0 ? Math.round((stats.totals.M / stats.total) * 100) : 0;
   const femalePercentage = stats.total > 0 ? Math.round((stats.totals.F / stats.total) * 100) : 0;
   const childPercentage = stats.total > 0 ? Math.round((stats.totals.CHD / stats.total) * 100) : 0;
   const infantPercentage = stats.total > 0 ? Math.round((stats.totals.INF / stats.total) * 100) : 0;
   
-  // Calcular promedio de equipaje por pasajero
-  const avgBaggagePerPax = stats.total > 0 ? (stats.baggage.weight / stats.total).toFixed(1) : '0';
+  // Calcular promedio de equipaje por pasajero según unidad
+  const avgBaggagePerPax = stats.total > 0 
+    ? weightUnit === 'kg'
+      ? `${(stats.baggage.weight / stats.total).toFixed(1)} kg`
+      : `${kgToLbs(stats.baggage.weight / stats.total)} lb`
+    : weightUnit === 'kg' ? '0 kg' : '0 lb';
+
+  // Calcular el número de pasajeros con equipaje (corregido)
+  // En lugar de usar el count como número de pasajeros, contamos cuántos pasajeros tienen baggage
+  const passengersWithBaggage = Math.min(stats.baggage.count, stats.total);
+  const baggagePassengerPercentage = stats.total > 0 
+    ? Math.round((passengersWithBaggage / stats.total) * 100) 
+    : 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6" ref={forwardRef}>
@@ -89,9 +113,21 @@ const BoardedStatsSection = ({ stats, forwardRef }) => {
       
       {/* Equipaje */}
       <div className="bg-white rounded-lg shadow p-6 print:shadow-none print:border">
-        <h2 className="text-lg font-semibold mb-3 flex items-center">
-          <FaSuitcase className="mr-2" /> Boarded Baggage
-        </h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold flex items-center">
+            <FaSuitcase className="mr-2" /> Boarded Baggage
+          </h2>
+          
+          {/* Botón para alternar entre kg y libras */}
+          <button 
+            onClick={() => setWeightUnit(weightUnit === 'kg' ? 'lb' : 'kg')}
+            className="flex items-center text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 px-2 py-1 rounded"
+            title="Cambiar unidad de peso"
+          >
+            <FaExchangeAlt className="mr-1" /> 
+            {weightUnit.toUpperCase()}
+          </button>
+        </div>
         
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-blue-50 p-3 rounded-md text-center">
@@ -100,32 +136,36 @@ const BoardedStatsSection = ({ stats, forwardRef }) => {
           </div>
           
           <div className="bg-blue-50 p-3 rounded-md text-center">
-            <div className="text-3xl font-bold text-blue-700">{stats.baggage.weight.toFixed(1)}</div>
-            <div className="text-sm text-blue-700">Peso total (kg)</div>
+            <div className="text-3xl font-bold text-blue-700">
+              {weightUnit === 'kg' 
+                ? stats.baggage.weight.toFixed(1) 
+                : kgToLbs(stats.baggage.weight)}
+            </div>
+            <div className="text-sm text-blue-700">Peso total ({weightUnit})</div>
           </div>
         </div>
         
         <div className="space-y-2">
           <div className="flex justify-between">
             <span>Promedio por pasajero:</span>
-            <span className="font-medium">{avgBaggagePerPax} kg</span>
+            <span className="font-medium">{avgBaggagePerPax}</span>
           </div>
           
           <div className="flex justify-between">
             <span>Promedio por pieza:</span>
             <span className="font-medium">
               {stats.baggage.count > 0 
-                ? (stats.baggage.weight / stats.baggage.count).toFixed(1) 
-                : '0'} kg
+                ? (weightUnit === 'kg'
+                  ? `${(stats.baggage.weight / stats.baggage.count).toFixed(1)} kg`
+                  : `${kgToLbs(stats.baggage.weight / stats.baggage.count)} lb`)
+                : weightUnit === 'kg' ? '0 kg' : '0 lb'}
             </span>
           </div>
           
           <div className="flex justify-between">
             <span>Pasajeros con equipaje:</span>
             <span className="font-medium">
-              {stats.baggage.count > 0 
-                ? Math.round((stats.baggage.count / stats.total) * 100) 
-                : 0}%
+              {baggagePassengerPercentage}%
             </span>
           </div>
         </div>

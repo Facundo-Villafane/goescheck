@@ -2,37 +2,61 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+const { setupPrintingHandlers } = require('./electron-printers-api.cjs');
 
 // Directorio para almacenar datos
 const userDataPath = app.getPath('userData');
 const configsPath = path.join(userDataPath, 'configs')
+console.log("Electron starting up...");
+console.log("Environment:", process.env.NODE_ENV);
+console.log("Env variables loaded:", Object.keys(process.env).filter(key => key.startsWith('VITE_')));
+
 // Asegurar que el directorio existe
 if (!fs.existsSync(configsPath)) {
   fs.mkdirSync(configsPath, { recursive: true });
 }
 
+
 let mainWindow;
 
 function createWindow() {
+  // Debug logging to see what paths are being used
+  const preloadPath = path.resolve(__dirname, 'preload.cjs');
+  console.log('__dirname:', __dirname);
+  console.log('Preload path:', preloadPath);
+  console.log('Path exists:', fs.existsSync(preloadPath));
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, '../build/icons/icon.png'), // Añade un ícono
-    title: "GOES Check-in System v0.1.0", // Título de la ventana
+    icon: path.join(__dirname, '../build/icons/icon.png'),
+    title: "GOES Check-in System v0.1.0",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs')
+      preload: preloadPath,
+      // Add these lines to help with debugging
+      devTools: true,
+      webSecurity: false // Only for development/debugging
     }
   });
 
-  // En desarrollo, carga desde el servidor de desarrollo
+  // More debug logging
+  console.log("Window created, loading URL...");
+  
+  // In development, carga desde el servidor de desarrollo
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173/');
+    console.log("Loaded development URL");
     mainWindow.webContents.openDevTools();
   } else {
     // En producción, carga desde los archivos construidos
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log("Production index path:", indexPath);
+    console.log("Path exists:", fs.existsSync(indexPath));
+    
+    mainWindow.loadFile(indexPath);
+    console.log("Loaded production file");
   }
 
   mainWindow.on('closed', () => {
@@ -66,17 +90,50 @@ function checkRequiredEnv() {
   }
 }
 
-app.whenReady().then(() => {
-  checkRequiredEnv();
-  createWindow();
-});
+// Add these IPC handlers directly in main.cjs
+function setupPrinterHandlers() {
+  // Get list of system printers
+  ipcMain.handle('getSystemPrinters', async (event) => {
+    try {
+      // Access the webContents object directly
+      const printers = mainWindow.webContents.getPrinters();
+      return printers;
+    } catch (error) {
+      console.error('Error getting system printers:', error);
+      return [];
+    }
+  });
+
+  // Add handlers for other printer operations...
+  ipcMain.handle('printTest', async (event, printerName) => {
+    // Implementation...
+    console.log('Print test requested for:', printerName);
+    return true; // Temporary placeholder
+  });
+
+  ipcMain.handle('printHTML', async (event, { printerName, htmlContent, options }) => {
+    // Implementation...
+    console.log('Print HTML requested for:', printerName);
+    return true; // Temporary placeholder
+  });
+
+  ipcMain.handle('printBoardingPass', async (event, { passenger, flightDetails, printerName, options }) => {
+    // Implementation...
+    console.log('Print boarding pass requested for:', passenger?.lastName);
+    return true; // Temporary placeholder
+  });
+}
+
+
 
 // Inicializar la aplicación y configurar los manejadores de impresión
 app.whenReady().then(() => {
+  checkRequiredEnv();
   createWindow();
   
   // Configurar los manejadores de impresión
   setupPrintingHandlers();
+  setupPrinterHandlers(); // Your local function
 });
 
 app.on('window-all-closed', () => {
@@ -287,3 +344,4 @@ ipcMain.handle('print:toPDF', async () => {
     throw error;
   }
 });
+

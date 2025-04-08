@@ -9,11 +9,18 @@
   "files": [
     "dist/**/*",
     "electron/**/*",
+    "public/**/*",
     ".env.production"
   ],
   "extraMetadata": {
     "main": "electron/main.cjs"
   },
+  "extraResources": [
+  {
+    "from": "node_modules/exceljs",
+    "to": "node_modules/exceljs"
+  }
+  ],
   "mac": {
     "icon": "build/icons/icon.icns",
     "category": "public.app-category.business",

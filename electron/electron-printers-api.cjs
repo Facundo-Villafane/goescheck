@@ -4,16 +4,29 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Configurar eventos IPC para impresoras e impresión
+// Set up IPC events for printers and printing
 function setupPrintingHandlers() {
-  // Obtener lista de impresoras del sistema
+  // Get list of system printers
   ipcMain.handle('getSystemPrinters', async (event) => {
     try {
-      const printers = event.sender.getPrinters();
+      // Fix: Use webContents property to access getPrinters
+      const printers = event.sender.webContents.getPrinters();
       return printers;
     } catch (error) {
-      console.error('Error obteniendo impresoras del sistema:', error);
-      return [];
+      console.error('Error getting system printers:', error);
+      
+      // Alternative approach if the above doesn't work
+      try {
+        // Get the focused window and use its webContents
+        const focusedWindow = BrowserWindow.getFocusedWindow();
+        if (focusedWindow) {
+          return focusedWindow.webContents.getPrinters();
+        }
+        return [];
+      } catch (fallbackError) {
+        console.error('Fallback error getting printers:', fallbackError);
+        return [];
+      }
     }
   });
 
@@ -232,3 +245,5 @@ ipcMain.handle('printToPDF', async (event, { htmlContent, options = {} }) => {
     getSystemPrinters: (webContents) => webContents.getPrinters()
   };
 }
+
+module.exports = { setupPrintingHandlers };

@@ -1,7 +1,32 @@
 // Actualización de preload.js para exponer APIs de impresión
 
 const { contextBridge, ipcRenderer } = require('electron');
-const ExcelJS = require('exceljs');
+// Try to load ExcelJS with robust error handling
+let ExcelJS;
+try {
+  ExcelJS = require('exceljs');
+  console.log('ExcelJS loaded successfully');
+} catch (error) {
+  console.error('Failed to load ExcelJS:', error);
+  // Create a dummy ExcelJS object that will show error messages
+  ExcelJS = {
+    Workbook: class {
+      constructor() {
+        throw new Error('ExcelJS module could not be loaded. Please check your installation.');
+      }
+    }
+  };
+}
+
+// Exponer variables de entorno seguras
+contextBridge.exposeInMainWorld('env', {
+  FIREBASE_API_KEY: process.env.VITE_FIREBASE_API_KEY,
+  FIREBASE_AUTH_DOMAIN: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  FIREBASE_PROJECT_ID: process.env.VITE_FIREBASE_PROJECT_ID,
+  FIREBASE_STORAGE_BUCKET: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  FIREBASE_MESSAGING_SENDER_ID: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  FIREBASE_APP_ID: process.env.VITE_FIREBASE_APP_ID,
+});
 
 // Exponer APIs seguras a la ventana de renderizado
 contextBridge.exposeInMainWorld('electronAPI', {
