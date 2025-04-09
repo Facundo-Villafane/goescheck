@@ -94,10 +94,13 @@ const SummaryPage = () => {
   // Definir la función para generar el reporte DCS
   const generateDCSReport = async () => {
     try {
+      const logoDataURL = await captureLogoAsImage();
+      
       await PDFService.generateDepartureControlPDF(
         flightDetails,
         filteredPassengers,
-        stats
+        stats,
+        logoDataURL
       );
     } catch (error) {
       console.error('Error generando reporte DCS:', error);

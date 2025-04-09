@@ -22,7 +22,7 @@ class PDFService {
    * Genera un PDF con los detalles del vuelo y la lista de pasajeros
    */
    // Método para generar un reporte estilo "Departure Control"
-    static generateDepartureControlPDF(flightDetails, passengers, stats) {
+    static generateDepartureControlPDF(flightDetails, passengers, stats, logoDataURL = null) {
       return new Promise((resolve, reject) => {
         try {
           // Crear un nuevo documento PDF
@@ -44,6 +44,16 @@ class PDFService {
           doc.setFont("courier");
 
           // --- Encabezado ---
+          if (logoDataURL) {
+            try {
+              // Posición: esquina superior derecha
+              doc.addImage(logoDataURL, 'PNG', 150, 5, 35, 15);
+            } catch (logoError) {
+              console.warn('Error añadiendo logo al PDF:', logoError);
+              // Continuar sin logo si hay un error
+            }
+          }
+
           doc.setFontSize(12);
           doc.text(`${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 20, 10);
           
@@ -129,8 +139,9 @@ class PDFService {
             // Número de asiento con formato XX-YY (donde XX es fila y YY es columna)
             const seat = passenger.seat ? passenger.seat.replace(/([0-9]+)([A-Z]+)/, "$1$2") : "--";
             
-            // Secuencia del pasajero (índice + 1, con formato de 2 dígitos)
-            const seq = String(index + 1).padStart(2, '0');
+            const seq = passenger.ticket 
+              ? String(passenger.ticket).padStart(2, '0') 
+              : String(index + 1).padStart(2, '0');
             
             // Formato de nombre: APELLIDO/NOMBRE (mayúsculas, truncado si es necesario)
             const lastName = (passenger.lastName || '').toUpperCase();

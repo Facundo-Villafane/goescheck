@@ -181,7 +181,7 @@ const PassengerDetails = ({ passenger, onUpdate }) => {
 
       {passenger.ticket && (
         <div className="bg-gray-50 p-3 rounded-lg">
-          <h3 className="text-sm text-gray-500 mb-1">Ticket</h3>
+          <h3 className="text-sm text-gray-500 mb-1">SEQ</h3>
           <p className="font-medium">{passenger.ticket}</p>
         </div>
       )}

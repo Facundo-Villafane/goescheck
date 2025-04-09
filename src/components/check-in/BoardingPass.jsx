@@ -216,7 +216,7 @@ const renderLogo = () => {
     <div className="space-y-4">
        {/*Información de la impresora y botones de acción*/} 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        {/*<div className="w-full md:w-auto">
+        <div className="w-full md:w-auto">
           {showPrinterSelector ? (
             <PrinterSelector 
               onPrinterChange={handlePrinterChange}
@@ -242,10 +242,10 @@ const renderLogo = () => {
               </button>
             </div>
           )}
-        </div>*/}
+        </div>
         
         <div className="flex space-x-2 w-full md:w-auto justify-end">
-          {/*{showPrintButton && (
+          {showPrintButton && (
             <button
               onClick={handlePrint}
               className="bg-sand hover:bg-noche text-white font-bold py-2 px-4 rounded flex items-center"
@@ -254,7 +254,7 @@ const renderLogo = () => {
               <FaPrint className="mr-2" /> 
               {printerConfig?.id === 'pdf-preview' ? 'Vista Previa' : 'Imprimir'}
             </button>
-          )}*/}
+          )}
           
           {onClose && (
             <button
@@ -306,7 +306,7 @@ const renderLogo = () => {
             <div style={{ fontSize: '16px', textTransform: 'uppercase' }}>{passenger?.lastName || '-'}/{passenger?.firstName || '-'}</div>
             <div style={{ fontSize: '12px' }}>
               ID: {passenger?.documentNumber || '-'}<br />
-              SQN {passenger?.ticket || '-'}<br />
+              SEQ {passenger?.ticket || '-'}<br />
               BAG: {getBaggageInfo()}
             </div>
           </div>
