@@ -1,14 +1,16 @@
 // src/pages/BoardingPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFlightContext } from '../contexts/FlightContext';
 import { usePassengersContext } from '../contexts/PassengersContext';
 import BoardingSeatMap from '../components/boarding/BoardingSeatMap';
 import BoardingPassengerList from '../components/boarding/BoardingPassengerList';
 import BoardingStats from '../components/boarding/BoardingStats';
 import BoardingScanner from '../components/boarding/BoardingScanner';
-import { FaPlane, FaUserCheck, FaSpinner, FaSync } from 'react-icons/fa';
+import { FaPlane, FaUserCheck, FaSpinner, FaSync, FaCog, FaUndo } from 'react-icons/fa';
 import { FiWifi, FiWifiOff } from "react-icons/fi";
 import { calculateBoardingStats } from '../utils/boardingStats';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const BoardingPage = () => {
   const { flightDetails, activeFlightId } = useFlightContext();
@@ -329,7 +331,65 @@ const handleUndoBoarding = async (passenger) => {
   }
 };
   
-  
+  // En BoardingPage.jsx, agrega esta función para embarcar a todos los pasajeros pendientes
+  const handleBoardAll = async () => {
+    if (pendingPassengers.length === 0) {
+      alert('No hay pasajeros pendientes de embarque');
+      return;
+    }
+    
+    // Confirmar antes de embarcar a todos
+    if (!window.confirm(`¿Estás seguro que deseas embarcar a todos los pasajeros pendientes (${pendingPassengers.length})?`)) {
+      return;
+    }
+    
+    // Mostrar indicador de carga
+    setIsSyncing(true);
+    
+    try {
+      // Crear una copia para evitar problemas con el estado mientras procesamos
+      const passengersToBoardCopy = [...pendingPassengers];
+      
+      // Array para almacenar los pasajeros embarcados
+      const newBoardedList = [...boardedPassengers];
+      
+      // Procesar cada pasajero secuencialmente
+      for (const passenger of passengersToBoardCopy) {
+        try {
+          // Usar la función del contexto para sincronizar con Firebase
+          const boardedPassenger = await boardPassenger(passenger);
+          
+          if (boardedPassenger) {
+            newBoardedList.push(boardedPassenger);
+          }
+        } catch (err) {
+          console.error(`Error al embarcar pasajero ${passenger.lastName}:`, err);
+          // Continuar con el siguiente pasajero aunque haya error
+        }
+      }
+      
+      // Actualizar estados locales al finalizar
+      setBoardedPassengers(newBoardedList);
+      setPendingPassengers([]);
+      
+      // Actualizar estadísticas
+      const boardedIds = newBoardedList.map(p => p.id);
+      const allPassengers = [...newBoardedList];
+      updateStatistics(allPassengers, boardedIds);
+      
+      // Si estamos online, actualizamos que hemos sincronizado
+      if (isOnline) {
+        setLastSyncTime(new Date());
+      }
+      
+      alert(`Se han embarcado ${passengersToBoardCopy.length} pasajeros con éxito`);
+    } catch (error) {
+      console.error('Error en el embarque masivo:', error);
+      alert('Ocurrió un error durante el embarque masivo. Algunos pasajeros podrían no haberse embarcado correctamente.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Nueva función para sincronizar manualmente con Firebase
   const handleManualSync = async () => {
@@ -384,22 +444,87 @@ const handleUndoBoarding = async (passenger) => {
     };
   }, [activeFlightId, syncBoardingData]);
   
-  // Reiniciar proceso de embarque
-  const handleResetBoarding = () => {
+  const handleResetBoarding = async () => {
     if (window.confirm('¿Está seguro de reiniciar todo el proceso de embarque? Esta acción no se puede deshacer.')) {
-      // Reiniciar estados
-      const allPassengers = [...boardedPassengers, ...pendingPassengers];
-      setBoardedPassengers([]);
-      setPendingPassengers(allPassengers);
-      setLastBoardedPassenger(null);
-      
-      // Limpiar localStorage
-      localStorage.removeItem(`boarding_${activeFlightId}`);
-      
-      // Actualizar estadísticas
-      updateStatistics(allPassengers, []);
+      try {
+        setIsSyncing(true); // Mostrar indicador de carga
+        
+        // 1. Obtener todos los pasajeros embarcados
+        const boardedCopy = [...boardedPassengers];
+        const pendingCopy = [...pendingPassengers];
+        const allPassengers = [...boardedCopy, ...pendingCopy];
+        
+        // 2. Actualizar el estado local primero
+        setBoardedPassengers([]);
+        setPendingPassengers(allPassengers);
+        setLastBoardedPassenger(null);
+        
+        // 3. Limpiar localStorage
+        localStorage.removeItem(`boarding_${activeFlightId}`);
+        
+        // 4. Si estamos online, actualizar Firebase
+        if (isOnline) {
+          try {
+            // Actualizar el documento del vuelo para eliminar todos los pasajeros embarcados
+            const flightRef = doc(db, 'flights', activeFlightId);
+            await updateDoc(flightRef, {
+              boardedPassengers: [], // Vaciar el array de pasajeros embarcados
+              lastBoardingUpdate: new Date().toISOString(),
+              'boardingStatus.totalBoarded': 0,
+              'boardingStatus.completionPercentage': 0
+            });
+            
+            // Para cada pasajero embarcado, actualizar su estado en Firebase
+            const batch = writeBatch(db);
+            
+            boardedCopy.forEach(passenger => {
+              const passengerRef = doc(db, 'passengers', passenger.id);
+              batch.update(passengerRef, {
+                boarded: false,
+                boardedAt: null
+              });
+            });
+            
+            // Ejecutar todas las actualizaciones en una sola operación
+            await batch.commit();
+            
+            console.log("Reajuste de embarque sincronizado con Firebase");
+            setLastSyncTime(new Date());
+          } catch (firebaseError) {
+            console.error("Error al actualizar Firebase:", firebaseError);
+            alert("Los datos se han reiniciado localmente, pero hubo un problema al sincronizar con el servidor.");
+          }
+        }
+        
+        // 5. Actualizar estadísticas
+        updateStatistics(allPassengers, []);
+        
+        alert('Proceso de embarque reiniciado correctamente.');
+        
+      } catch (error) {
+        console.error('Error al reiniciar el proceso de embarque:', error);
+        alert('Ocurrió un error al reiniciar el proceso de embarque. Intente nuevamente.');
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
+
+const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+
+const menuRef = useRef();
+
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (menuRef.current && !menuRef.current.contains(event.target)) {
+      setShowOptionsMenu(false);
+    }
+  };
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, []);
   
   // Formatear fecha
   const formatDate = (dateString) => {
@@ -441,6 +566,7 @@ const handleUndoBoarding = async (passenger) => {
             <div className="text-gray-600">
               {boardingStats.boardedCount} / {boardingStats.totalCheckedIn} embarcados
             </div>
+            
             {/* Botón de sincronización y estado */}
             <div className="mt-2 flex items-center gap-2">
               <span className="text-xs flex items-center">
@@ -466,15 +592,40 @@ const handleUndoBoarding = async (passenger) => {
                 }
                 Sincronizar
               </button>
+              
+              {/* Botón que abre el menú */}
+                <button
+                  onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                  className="flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm"
+                >
+                  <FaCog className="mr-1" /> Acciones
+                </button>
+
+                {/* El menú desplegable */}
+                {showOptionsMenu && (
+                  <div ref={menuRef} className="absolute right-0 mt-1 z-50 bg-white rounded-md shadow-lg overflow-hidden w-48">
+                    <button
+                      onClick={handleBoardAll}
+                      disabled={pendingPassengers.length === 0 || isSyncing}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-green-50 flex items-center ${
+                        (pendingPassengers.length === 0 || isSyncing) ? 'opacity-50 cursor-not-allowed text-gray-400' : 'text-green-700'
+                      }`}
+                    >
+                      <FaUserCheck className="mr-2" />
+                      Embarcar Todos ({pendingPassengers.length})
+                    </button>
+                    
+                    <button
+                      onClick={handleResetBoarding}
+                      className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center"
+                    >
+                      <FaUndo className="mr-2" />
+                      Reiniciar Embarque
+                    </button>
+                  </div>
+                )}
+              
             </div>
-            {/* Uncomment if you want the reset button
-            <button
-              onClick={handleResetBoarding}
-              className="mt-2 bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-md"
-            >
-              Reiniciar Embarque
-            </button>
-            */}
           </div>
         </div>
       </div>
